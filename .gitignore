@@ -1,0 +1,13 @@
+.next/
+node_modules/
+.venv/
+.venv_backup/
+backend/venv/
+.env
+.DS_Store
+.vscode/
+*.pyc
+__pycache__/
+/.pytest_cache/
+*.db
+uploads/

@@ -1,0 +1,6 @@
+- [x] Add error state to the component
+- [x] Update handleFileUpload to handle and display errors
+- [x] Update handleAnalyzeVideo to handle and display errors
+- [ ] Update handleExportVideo to handle and display errors
+- [ ] Add UI element to display error messages
+- [ ] Clear error messages on successful operations
