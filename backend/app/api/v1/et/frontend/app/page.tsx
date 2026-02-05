@@ -47,6 +47,22 @@ export default function Dashboard() {
       description:
         "Turn raw footage into platform-ready videos with AI scene detection, captions, and smart exports.",
       icon: Film,
+      href: "/video",
+      color: "from-green-500 to-green-600",
+      features: [
+        "AI Scene Detection",
+        "Auto Captions",
+        "Smart Exports",
+        "Platform Optimization",
+      ],
+    },
+  ];
+
+  const stats = [
+    { label: "Content Generated", value: "2.4K", icon: Sparkles },
+    { label: "Engagement Rate", value: "89%", icon: BarChart3 },
+    { label: "Time Saved", value: "156h", icon: Zap },
+  ];
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Header */}
@@ -284,19 +300,4 @@ export default function Dashboard() {
       </main>
     </div>
   );
-}
-            Empowering rural communities with AI-driven cybersecurity
-          </p>
-          <div className="flex justify-center space-x-6">
-            <Link href="/voice" className="text-gray-300 hover:text-white transition-colors">
-              Voice Assistant
-            </Link>
-            <Link href="/admin" className="text-gray-300 hover:text-white transition-colors">
-              Dashboard
-            </Link>
-          </div>
-        </div>
-      </footer>
-    </div>
-  )
 }
