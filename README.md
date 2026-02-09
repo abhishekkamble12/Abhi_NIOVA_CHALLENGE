@@ -1,9 +1,13 @@
 # 🤖 AI Media OS – HiveMind
 
-**AI Media OS** is an AI-native platform that unifies content creation, distribution, and optimization into a single intelligent system that *learns from every interaction*.
+**Challenge Track**: Professional  
+**Problem**: Content creators waste time using fragmented tools that don't learn from each other  
+**Solution**: Unified AI platform where social media, news curation, and video editing share intelligence and improve together
 
 > This is not automation.  
 > This is a self-improving media intelligence layer.
+
+📄 **[Requirements](requirements.md)** | 🏗️ **[Design](design.md)** | 📐 **[Architecture](ARCHITECTURE.md)**
 
 ---
 
@@ -57,6 +61,14 @@ Every module feeds the others.
 
 ---
 
+## 📋 Documentation
+
+- **[requirements.md](requirements.md)** - Complete functional and non-functional requirements
+- **[design.md](design.md)** - System design and architecture details
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Data flow patterns and implementation
+
+---
+
 ## 🚀 Quick Start
 
 ```bash
@@ -66,6 +78,28 @@ pip install -r requirements.txt
 python run.py
 
 # Frontend
-cd app
 npm install
 npm run dev
+```
+
+## 🎯 Key Features
+
+### Social Media Engine
+- AI-powered content generation for Instagram, LinkedIn, X
+- Automatic engagement tracking and learning
+- Platform-specific optimization
+
+### Personalized News Feed
+- NLP-based article analysis and tagging
+- Hybrid recommendation engine
+- Real-time user behavior learning
+
+### Video Intelligence
+- Automated scene detection and suggestions
+- Speech-to-text captioning
+- Platform-optimized exports
+
+### Cross-Module Learning
+- Shared intelligence layer across all modules
+- Performance insights improve all content types
+- Compounding improvements over time
