@@ -1,7 +1,3 @@
-Here is a **refined, more professional, and cleaner version** of your Contributing Guide — structured better, slightly more powerful in tone, and easier to read while keeping your vision strong.
-
----
-
 # 🤝 Contributing to AI Media OS
 
 Thank you for your interest in contributing to **AI Media OS** — an AI-native platform designed to build *compounding intelligence* in content creation.
