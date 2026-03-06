@@ -1,0 +1,16 @@
+[Unit]
+Description=HiveMind Backend API
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/home/ec2-user/aws/backend-aws
+Environment="PATH=/home/ec2-user/aws/backend-aws/venv/bin"
+EnvironmentFile=/home/ec2-user/aws/backend-aws/.env
+ExecStart=/home/ec2-user/aws/backend-aws/venv/bin/uvicorn api_server:app --host 0.0.0.0 --port 8000 --workers 4
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

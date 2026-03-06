@@ -1,0 +1,260 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: HiveMind AI Media OS - Minimal Working Architecture
+
+Parameters:
+
+  DBUsername:
+    Type: String
+    Default: hivemind
+
+  DBPassword:
+    Type: String
+    NoEcho: true
+
+  DBName:
+    Type: String
+    Default: hiveminddb
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC for deployment
+
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: At least two private subnets
+
+Resources:
+
+  # -----------------------------
+  # EventBridge
+  # -----------------------------
+  HiveMindEventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: hivemind-bus
+
+  # -----------------------------
+  # Security Groups
+  # -----------------------------
+  LambdaSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Lambda access
+      VpcId: !Ref VpcId
+
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Aurora access
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 5432
+        ToPort: 5432
+        SourceSecurityGroupId: !Ref LambdaSecurityGroup
+
+  # -----------------------------
+  # DB Subnet Group
+  # -----------------------------
+  HiveMindDBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: HiveMind DB Subnet
+      SubnetIds: !Ref SubnetIds
+
+  # -----------------------------
+  # Aurora Cluster
+  # -----------------------------
+  HiveMindDBCluster:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      Engine: aurora-postgresql
+      EngineMode: provisioned
+      DatabaseName: !Ref DBName
+      MasterUsername: !Ref DBUsername
+      MasterUserPassword: !Ref DBPassword
+      VpcSecurityGroupIds:
+      - !Ref DBSecurityGroup
+      DBSubnetGroupName: !Ref HiveMindDBSubnetGroup
+
+      ServerlessV2ScalingConfiguration:
+        MinCapacity: 0.5
+        MaxCapacity: 2
+
+  # -----------------------------
+  # Required Aurora Instance
+  # -----------------------------
+  HiveMindDBInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBClusterIdentifier: !Ref HiveMindDBCluster
+      DBInstanceClass: db.serverless
+      Engine: aurora-postgresql
+      PubliclyAccessible: false
+
+  # -----------------------------
+  # IAM Role for Lambda
+  # -----------------------------
+  HiveMindLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: hivemind-lambda-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action: sts:AssumeRole
+
+      Policies:
+      - PolicyName: hivemind-policy
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+
+          - Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource: "*"
+
+          - Effect: Allow
+            Action:
+            - ec2:CreateNetworkInterface
+            - ec2:DescribeNetworkInterfaces
+            - ec2:DeleteNetworkInterface
+            - ec2:AssignPrivateIpAddresses
+            - ec2:UnassignPrivateIpAddresses
+            Resource: "*"
+
+          - Effect: Allow
+            Action:
+            - s3:GetObject
+            - s3:PutObject
+            Resource: "*"
+
+          - Effect: Allow
+            Action:
+            - bedrock:InvokeModel
+            Resource: "*"
+
+          - Effect: Allow
+            Action:
+            - events:PutEvents
+            Resource: "*"
+  # -----------------------------
+  # Lambda Function
+  # -----------------------------
+  HiveMindLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: hivemind-api
+      Runtime: python3.11
+      Handler: index.handler
+      Role: !GetAtt HiveMindLambdaRole.Arn
+      Timeout: 30
+
+      VpcConfig:
+        SecurityGroupIds:
+        - !Ref LambdaSecurityGroup
+        SubnetIds: !Ref SubnetIds
+
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+
+          bedrock = boto3.client("bedrock-runtime")
+
+          def handler(event, context):
+
+              body = json.loads(event.get("body","{}"))
+              text = body.get("text","Hello from HiveMind")
+
+              response = bedrock.invoke_model(
+                  modelId="amazon.titan-embed-text-v1",
+                  body=json.dumps({"inputText": text})
+              )
+
+              result = json.loads(response["body"].read())
+
+              return {
+                  "statusCode": 200,
+                  "headers": {"Content-Type": "application/json"},
+                  "body": json.dumps({
+                      "embedding_length": len(result["embedding"])
+                  })
+              }
+
+  # -----------------------------
+  # API Gateway
+  # -----------------------------
+  HiveMindApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: HiveMindAPI
+
+  HiveMindApiResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref HiveMindApi
+      ParentId: !GetAtt HiveMindApi.RootResourceId
+      PathPart: generate
+
+  HiveMindApiMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref HiveMindApi
+      ResourceId: !Ref HiveMindApiResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri:
+          Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${HiveMindLambda.Arn}/invocations
+
+  # -----------------------------
+  # Lambda Permission
+  # -----------------------------
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref HiveMindLambda
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HiveMindApi}/*/POST/generate
+
+  # -----------------------------
+  # API Deployment
+  # -----------------------------
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: HiveMindApiMethod
+    Properties:
+      RestApiId: !Ref HiveMindApi
+      StageName: prod
+
+# -----------------------------
+# Outputs
+# -----------------------------
+Outputs:
+
+  ApiURL:
+    Description: API Gateway endpoint
+    Value: !Sub https://${HiveMindApi}.execute-api.${AWS::Region}.amazonaws.com/prod/generate
+
+  DatabaseClusterEndpoint:
+    Description: Aurora Cluster Endpoint
+    Value: !GetAtt HiveMindDBCluster.Endpoint.Address
+
+  DatabaseReaderEndpoint:
+    Description: Aurora Reader Endpoint
+    Value: !GetAtt HiveMindDBCluster.ReadEndpoint.Address
+
+  EventBusName:
+    Value: !Ref HiveMindEventBus

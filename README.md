@@ -7,7 +7,7 @@
 > This is not automation.  
 > This is a self-improving media intelligence layer.
 
-📄 **[Requirements](requirements.md)** | 🏗️ **[Design](design.md)** | 📐 **[Architecture](ARCHITECTURE.md)**
+📄 **[Requirements](requirements.md)** | 🏗️ **[Design](design.md)** | 📐 **[Architecture](ARCHITECTURE.md)** | 🗄️ **[Vector DB Setup](db-setup/)**
 
 ---
 
@@ -66,6 +66,7 @@ Every module feeds the others.
 - **[requirements.md](requirements.md)** - Complete functional and non-functional requirements
 - **[design.md](design.md)** - System design and architecture details
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - Data flow patterns and implementation
+- **[db-setup/](db-setup/)** - Vector database setup and configuration
 
 ---
 
@@ -91,7 +92,8 @@ npm run dev
 
 ### Personalized News Feed
 - NLP-based article analysis and tagging
-- Hybrid recommendation engine
+- Vector embeddings for semantic search (pgvector)
+- Hybrid recommendation engine (collaborative + vector similarity)
 - Real-time user behavior learning
 
 ### Video Intelligence

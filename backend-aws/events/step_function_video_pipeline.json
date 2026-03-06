@@ -1,0 +1,96 @@
+{
+  "Comment": "Video Processing Pipeline: Upload → Detect Scenes → Generate Captions → Store Embeddings",
+  "StartAt": "DetectScenes",
+  "States": {
+    "DetectScenes": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "hivemind-detect-scenes",
+        "Payload": {
+          "video_id.$": "$.detail.video_id",
+          "s3_key.$": "$.detail.s3_key"
+        }
+      },
+      "ResultPath": "$.scenes_result",
+      "Next": "GenerateCaptions",
+      "TimeoutSeconds": 300
+    },
+    "GenerateCaptions": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "hivemind-generate-captions",
+        "Payload": {
+          "video_id.$": "$.detail.video_id",
+          "s3_key.$": "$.detail.s3_key"
+        }
+      },
+      "ResultPath": "$.captions_result",
+      "Next": "ParallelEmbeddings",
+      "TimeoutSeconds": 300
+    },
+    "ParallelEmbeddings": {
+      "Type": "Map",
+      "ItemsPath": "$.scenes_result.Payload.scenes",
+      "MaxConcurrency": 10,
+      "Iterator": {
+        "StartAt": "GenerateSceneEmbedding",
+        "States": {
+          "GenerateSceneEmbedding": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+              "FunctionName": "hivemind-generate-scene-embedding",
+              "Payload": {
+                "video_id.$": "$.video_id",
+                "scene.$": "$",
+                "captions.$": "$.captions"
+              }
+            },
+            "End": true
+          }
+        }
+      },
+      "ResultPath": "$.embeddings_result",
+      "Next": "StoreVideoData"
+    },
+    "StoreVideoData": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "hivemind-store-video-data",
+        "Payload": {
+          "video_id.$": "$.detail.video_id",
+          "scenes.$": "$.scenes_result.Payload.scenes",
+          "captions.$": "$.captions_result.Payload.captions",
+          "embeddings.$": "$.embeddings_result"
+        }
+      },
+      "ResultPath": "$.store_result",
+      "Next": "PublishVideoProcessedEvent"
+    },
+    "PublishVideoProcessedEvent": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::events:putEvents",
+      "Parameters": {
+        "Entries": [
+          {
+            "Source": "hivemind",
+            "DetailType": "VideoProcessed",
+            "Detail": {
+              "video_id.$": "$.detail.video_id",
+              "scenes.$": "$.scenes_result.Payload.scenes",
+              "captions.$": "$.captions_result.Payload.captions"
+            },
+            "EventBusName": "hivemind-events"
+          }
+        ]
+      },
+      "Next": "Success"
+    },
+    "Success": {
+      "Type": "Succeed"
+    }
+  }
+}
