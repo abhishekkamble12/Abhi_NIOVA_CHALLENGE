@@ -30,8 +30,10 @@ AI Media OS solves this by creating a unified, self-improving content intelligen
 ### FR3: Personalized News Feed
 - System shall ingest articles from multiple sources
 - System shall extract topics, sentiment, and generate embeddings using NLP
+- System shall store article embeddings in vector database for semantic search
 - System shall build dynamic user interest profiles based on behavior
-- System shall deliver personalized content recommendations using hybrid filtering
+- System shall deliver personalized content recommendations using hybrid filtering (collaborative + vector similarity)
+- System shall perform semantic search across articles using cosine similarity
 
 ### FR4: Video Intelligence Pipeline
 - System shall process uploaded videos for scene detection
@@ -43,7 +45,9 @@ AI Media OS solves this by creating a unified, self-improving content intelligen
 - System shall share insights across all modules (social, feed, video)
 - System shall use video performance data to improve social captions
 - System shall use news trends to inform content generation
-- System shall maintain centralized intelligence layer
+- System shall maintain centralized intelligence layer with vector embeddings
+- System shall link semantically similar content across modules using vector similarity
+- System shall build unified user interest profiles using aggregated embeddings
 
 ### FR6: Real-Time Analytics
 - System shall provide engagement analytics dashboards
@@ -116,7 +120,9 @@ AI Media OS solves this by creating a unified, self-improving content intelligen
 ### Technical Constraints
 - Backend: Python 3.9+, FastAPI framework
 - Frontend: Next.js 14, TypeScript, Tailwind CSS
-- Database: PostgreSQL 14+ (relational data), Redis (caching)
+- Database: PostgreSQL 14+ with pgvector extension (relational + vector data), Redis (caching)
+- Vector Database: pgvector for MVP (< 1M vectors), Pinecone for scale (> 1M vectors)
+- Embedding Model: sentence-transformers (all-MiniLM-L6-v2, 384 dimensions)
 - AI Services: OpenAI API, Hugging Face models (or mocks for demo)
 - Deployment: Docker containers, cloud-agnostic design
 

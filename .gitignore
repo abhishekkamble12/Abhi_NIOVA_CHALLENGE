@@ -1,13 +1,166 @@
-.next/
-node_modules/
+# ============================================
+# SECRETS & CREDENTIALS
+# ============================================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+credentials.json
+secrets.json
+config.json
+aws-credentials.json
+
+# ============================================
+# PYTHON
+# ============================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
 .venv/
 .venv_backup/
 backend/venv/
-.env
-.DS_Store
-.vscode/
-*.pyc
-__pycache__/
-/.pytest_cache/
+backend-aws/venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ============================================
+# NODE.JS / NEXT.JS
+# ============================================
+node_modules/
+.next/
+out/
+.cache/
+.turbo/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# ============================================
+# DATABASES
+# ============================================
 *.db
+*.sqlite
+*.sqlite3
+test.db
+*.sql.backup
+*.dump
+
+# ============================================
+# LOGS
+# ============================================
+*.log
+logs/
+backend.log
+frontend.log
+*.log.*
+npm-debug.log*
+yarn-debug.log*
+
+# ============================================
+# UPLOADS & MEDIA
+# ============================================
 uploads/
+media/
+videos/
+thumbnails/
+temp/
+tmp/
+
+# ============================================
+# AWS
+# ============================================
+.aws/
+*.pem
+.backend.pid
+.frontend.pid
+cloudformation-output.json
+sam-output.json
+
+# ============================================
+# IDE & EDITORS
+# ============================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+*.sublime-project
+*.sublime-workspace
+
+# ============================================
+# OS
+# ============================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ============================================
+# TESTING
+# ============================================
+.pytest_cache/
+.coverage
+coverage/
+htmlcov/
+.tox/
+.hypothesis/
+*.cover
+.cache
+
+# ============================================
+# BUILD ARTIFACTS
+# ============================================
+dist/
+build/
+*.egg-info/
+.next/
+out/
+.turbo/
+
+# ============================================
+# TYPESCRIPT
+# ============================================
+*.tsbuildinfo
+next-env.d.ts
+
+# ============================================
+# MISC
+# ============================================
+.vercel
+.netlify
+.serverless/
+.fusebox/
+.dynamodb/
+.tern-port
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*

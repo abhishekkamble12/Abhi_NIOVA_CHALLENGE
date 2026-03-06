@@ -59,11 +59,15 @@
                     │ • brands                      │
                     │ • generated_posts             │
                     │ • engagement_metrics          │
-                    │ • articles                    │
+                    │ • articles (with embeddings)  │
                     │ • user_behavior               │
+                    │ • user_interest_embeddings    │
                     │ • videos                      │
-                    │ • video_scenes                │
+                    │ • video_scenes (with embeddings)│
                     │ • captions                    │
+                    │ • cross_module_links          │
+                    │                               │
+                    │ pgvector Extension Enabled    │
                     └───────────────────────────────┘
 ```
 
@@ -134,7 +138,7 @@
 │    • Extract title, body, source, URL                   │
 └────────────────┬────────────────────────────────────────┘
                  │
-┌────────────────▼────────────────────────────────────────┐
+┌─────────────────────────────────────────────────────────┐
 │ 2. NLP PROCESSING (NLPService)                          │
 │    • Extract topics (AI, Tech, Business, etc)          │
 │    • Analyze sentiment (positive, neutral, negative)   │
@@ -143,57 +147,67 @@
 └────────────────┬────────────────────────────────────────┘
                  │
 ┌────────────────▼────────────────────────────────────────┐
-│ 3. STORAGE (Article + ArticleTag)                       │
-│    • Save article metadata                              │
-│    • Save topics with confidence scores                 │
-│    • Save embedding for similarity                      │
+│ 3. VECTOR STORAGE (pgvector)                            │
+│    • Store article embedding in vector column           │
+│    • Index with IVFFlat for fast similarity search      │
 └────────────────┬────────────────────────────────────────┘
                  │
 ┌────────────────▼────────────────────────────────────────┐
-│ 4. USER REQUESTS FEED                                   │
+│ 4. STORAGE (Article + ArticleTag)                       │
+│    • Save article metadata                              │
+│    • Save topics with confidence scores                 │
+│    • Embedding already stored in step 3                 │
+└────────────────┬────────────────────────────────────────┘
+                 │
+┌────────────────▼────────────────────────────────────────┐
+│ 5. USER REQUESTS FEED                                   │
 │    • GET /feed/{user_id}                                │
 └────────────────┬────────────────────────────────────────┘
                  │
 ┌────────────────▼────────────────────────────────────────┐
-│ 5. BUILD USER PROFILE                                   │
+│ 6. BUILD USER PROFILE                                   │
 │    • Query UserBehavior (clicks, reads)                 │
 │    • Extract interests from read articles               │
-│    • Calculate engagement_level                         │
+│    • Aggregate embeddings with weights                  │
+│    • Store in user_interest_embeddings table            │
 └────────────────┬────────────────────────────────────────┘
                  │
 ┌────────────────▼────────────────────────────────────────┐
-│ 6. RECOMMENDATION ENGINE (Hybrid)                       │
+│ 7. RECOMMENDATION ENGINE (Hybrid + Vector)              │
 │    For each article:                                    │
-│      • Content similarity = cosine(embedding)           │
+│      • Vector similarity = cosine(user_emb, article_emb)│
 │      • Interest match = topic overlap                   │
 │      • Behavior bias = recent action history            │
-│      • score = 0.5*sim + 0.3*interest + 0.2*behavior  │
+│      • score = 0.5*vector_sim + 0.3*interest + 0.2*behavior│
 └────────────────┬────────────────────────────────────────┘
                  │
 ┌────────────────▼────────────────────────────────────────┐
-│ 7. RANK & RETURN                                        │
+│ 8. RANK & RETURN                                        │
 │    • Sort by score (highest first)                      │
+│    • Use pgvector IVFFlat index for fast retrieval     │
 │    • Return top N items                                 │
 │    • Include relevance_score in response                │
 └────────────────┬────────────────────────────────────────┘
                  │
 ┌────────────────▼────────────────────────────────────────┐
-│ 8. USER INTERACTION (Click, Read, Like)                 │
+│ 9. USER INTERACTION (Click, Read, Like)                 │
 │    • Track action in UserBehavior                       │
 │    • Store read_time, scroll_depth                      │
 └────────────────┬────────────────────────────────────────┘
                  │
 ┌────────────────▼────────────────────────────────────────┐
-│ 9. TUNE RECOMMENDATIONS                                 │
-│    • POST /recommendations/tune/{user_id}              │
-│    • Analyze behavior patterns                          │
-│    • Adjust weighting for next recommendation           │
-│    • Build smarter user profile                         │
+│ 10. TUNE RECOMMENDATIONS                                │
+│     • POST /recommendations/tune/{user_id}              │
+│     • Analyze behavior patterns                         │
+│     • Update user_interest_embeddings with new weights  │
+│     • Adjust weighting for next recommendation          │
+│     • Build smarter user profile                        │
 └────────────────┬────────────────────────────────────────┘
                  │
 ┌────────────────▼────────────────────────────────────────┐
-│ 10. NEXT FEED REQUEST                                   │
+│ 11. NEXT FEED REQUEST                                   │
 │     • User receives more relevant articles              │
+│     • Vector similarity improves with more data         │
 │     • Cycle repeats → Personalization improves          │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -472,6 +486,8 @@ async def health():
 - Add indexes on frequently queried columns
 - Use pagination for large result sets
 - Cache popular queries with Redis
+- Optimize vector indexes (tune IVFFlat lists parameter)
+- Use batch embedding generation
 
 ### API
 - Use async/await for I/O operations

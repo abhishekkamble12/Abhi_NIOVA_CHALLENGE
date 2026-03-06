@@ -1,0 +1,95 @@
+{
+  "Comment": "Article Processing Pipeline: Create → Embed → Store → Generate Social Post",
+  "StartAt": "GenerateEmbedding",
+  "States": {
+    "GenerateEmbedding": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "hivemind-generate-embedding",
+        "Payload": {
+          "article_id.$": "$.detail.article_id",
+          "title.$": "$.detail.title",
+          "content.$": "$.detail.content"
+        }
+      },
+      "ResultPath": "$.embedding_result",
+      "Next": "StoreVector",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "HandleError"
+        }
+      ]
+    },
+    "StoreVector": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "hivemind-store-vector",
+        "Payload": {
+          "article_id.$": "$.detail.article_id",
+          "embedding.$": "$.embedding_result.Payload.embedding"
+        }
+      },
+      "ResultPath": "$.store_result",
+      "Next": "GenerateSocialPost"
+    },
+    "GenerateSocialPost": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "hivemind-generate-social-post",
+        "Payload": {
+          "article_id.$": "$.detail.article_id",
+          "title.$": "$.detail.title",
+          "content.$": "$.detail.content"
+        }
+      },
+      "ResultPath": "$.post_result",
+      "Next": "PublishPostCreatedEvent"
+    },
+    "PublishPostCreatedEvent": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::events:putEvents",
+      "Parameters": {
+        "Entries": [
+          {
+            "Source": "hivemind",
+            "DetailType": "PostCreated",
+            "Detail": {
+              "post_id.$": "$.post_result.Payload.post_id",
+              "platform": "linkedin",
+              "content.$": "$.post_result.Payload.content"
+            },
+            "EventBusName": "hivemind-events"
+          }
+        ]
+      },
+      "Next": "Success"
+    },
+    "Success": {
+      "Type": "Succeed"
+    },
+    "HandleError": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "hivemind-error-handler",
+        "Payload": {
+          "error.$": "$.Error",
+          "cause.$": "$.Cause"
+        }
+      },
+      "End": true
+    }
+  }
+}

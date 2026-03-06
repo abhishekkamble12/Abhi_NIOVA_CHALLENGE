@@ -18,6 +18,8 @@ All modules contribute to and benefit from a central intelligence layer:
 - **Cross-module insights**: Video performance data improves social captions
 - **Behavioral patterns**: User preferences inform all content types
 - **Performance optimization**: Success patterns propagate across pipelines
+- **Vector embeddings**: Semantic similarity enables intelligent content linking
+- **Unified user profiles**: Aggregated interest embeddings across all interactions
 
 ### 3. Microservices-Ready Architecture
 ```
@@ -35,12 +37,13 @@ All modules contribute to and benefit from a central intelligence layer:
 │                 SHARED INTELLIGENCE LAYER                   │
 │  • Cross-module insights  • Engagement patterns            │
 │  • User behavior analysis • Performance optimization       │
+│  • Vector embeddings      • Semantic similarity search     │
 └─────────────────────────────────────────────────────────────┘
                               │
 ┌─────────────────────────────────────────────────────────────┐
 │                      DATA LAYER                             │
 │  • PostgreSQL (Structured)  • Redis (Cache)               │
-│  • Vector Store (Embeddings) • File Storage (Media)        │
+│  • pgvector (Embeddings)    • File Storage (Media)        │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -86,9 +89,11 @@ Article Ingestion
     ↓
 NLP Processing (Topics, Sentiment, Embeddings)
     ↓
-User Profile Building (Behavioral Analysis)
+Vector Storage (pgvector - 384-dim embeddings)
     ↓
-Hybrid Recommendation Engine
+User Profile Building (Behavioral Analysis + Vector Aggregation)
+    ↓
+Hybrid Recommendation Engine (Collaborative + Vector Similarity)
     ↓
 Real-time Ranking & Delivery
     ↓
@@ -96,15 +101,17 @@ Interaction Tracking → Profile Updates
 ```
 
 **Key Components**:
-- **NLP Service**: Topic extraction, sentiment analysis, embeddings
-- **Recommendation Engine**: Content-based + collaborative filtering
-- **User Profiler**: Dynamic interest modeling
-- **Real-time Ranker**: Personalized content scoring
+- **NLP Service**: Topic extraction, sentiment analysis, embeddings (sentence-transformers)
+- **Vector Service**: Embedding generation, similarity search, user profile aggregation
+- **Recommendation Engine**: Content-based + collaborative filtering + vector similarity
+- **User Profiler**: Dynamic interest modeling with weighted embeddings
+- **Real-time Ranker**: Personalized content scoring using cosine similarity
 
 **Scalability**:
-- Vector similarity search for embeddings
-- Cached user profiles with TTL
+- Vector similarity search using pgvector (IVFFlat indexes)
+- Cached user profile embeddings with TTL
 - Streaming updates for real-time personalization
+- Batch embedding generation for efficiency
 
 ### Video Intelligence Pipeline
 
@@ -148,23 +155,28 @@ Performance Tracking → Suggestion Improvement
 brands (id, user_id, name, keywords, tone, platforms, created_at)
 
 -- Content Generation
-generated_posts (id, brand_id, platform, caption, hashtags, published_at)
+generated_posts (id, brand_id, platform, caption, hashtags, embedding, published_at)
 engagement_metrics (id, post_id, likes, comments, shares, ctr, timestamp)
 
 -- Feed System  
 articles (id, title, body, source, topics, sentiment, embedding, published_date)
 user_behavior (id, user_id, article_id, action, read_time, timestamp)
+user_interest_embeddings (id, user_id, embedding, interest_category, weight)
 
 -- Video Processing
 videos (id, user_id, title, file_url, duration, processing_status)
-video_scenes (id, video_id, start_time, end_time, scene_type, confidence)
+video_scenes (id, video_id, start_time, end_time, scene_type, embedding, confidence)
 captions (id, video_id, text, start_time, end_time, language)
+
+-- Cross-Module Intelligence
+cross_module_links (id, article_id, post_id, video_id, link_type, similarity_score)
 ```
 
 **Indexing Strategy**:
 - B-tree indexes on foreign keys and timestamps
 - GIN indexes on JSON columns (topics, hashtags)
-- Vector indexes for embedding similarity search
+- IVFFlat vector indexes for embedding similarity search (pgvector)
+- Composite indexes for common query patterns
 
 ### Caching Strategy
 
@@ -397,6 +409,7 @@ class UserBehavior(HttpUser):
 - **Advanced Analytics**: Predictive engagement modeling
 - **Multi-tenant Architecture**: Enterprise customer support
 - **Background Processing**: Celery job queue implementation
+- **Vector Database Optimization**: Migrate to Pinecone for > 500K vectors
 
 ### V2 Features (6-12 Months)
 - **Custom Model Training**: Fine-tuned models on platform data
