@@ -1,0 +1,314 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: S3 Media Bucket with EventBridge Integration
+
+Parameters:
+  EventBusName:
+    Type: String
+    Default: hivemind-bus
+
+Resources:
+
+  # S3 Bucket with EventBridge notifications
+  MediaBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub hivemind-media-${AWS::AccountId}
+      VersioningConfiguration:
+        Status: Enabled
+      NotificationConfiguration:
+        EventBridgeConfiguration:
+          EventBridgeEnabled: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldVersions
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  # EventBridge Rule for Video Uploads
+  VideoUploadedRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: hivemind-video-uploaded
+      EventBusName: !Ref EventBusName
+      EventPattern:
+        source:
+          - aws.s3
+        detail-type:
+          - Object Created
+        detail:
+          bucket:
+            name:
+              - !Ref MediaBucket
+          object:
+            key:
+              - prefix: videos/
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt VideoProcessingStateMachine.Arn
+          RoleArn: !GetAtt EventBridgeRole.Arn
+          InputTransformer:
+            InputPathsMap:
+              bucket: $.detail.bucket.name
+              key: $.detail.object.key
+              size: $.detail.object.size
+              etag: $.detail.object.etag
+            InputTemplate: |
+              {
+                "detail": {
+                  "videoId": "<key>",
+                  "s3Bucket": "<bucket>",
+                  "s3Key": "<key>",
+                  "fileSize": <size>,
+                  "etag": "<etag>"
+                }
+              }
+
+  # Step Functions State Machine
+  VideoProcessingStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: hivemind-video-processing
+      RoleArn: !GetAtt StepFunctionsRole.Arn
+      DefinitionString: !Sub |
+        {
+          "Comment": "Video Processing Pipeline",
+          "StartAt": "ValidateVideo",
+          "States": {
+            "ValidateVideo": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "hivemind-validate-video",
+                "Payload": {
+                  "videoId.$": "$.detail.videoId",
+                  "s3Bucket.$": "$.detail.s3Bucket",
+                  "s3Key.$": "$.detail.s3Key"
+                }
+              },
+              "ResultPath": "$.validation",
+              "Next": "ParallelProcessing"
+            },
+            "ParallelProcessing": {
+              "Type": "Parallel",
+              "Next": "StoreResults",
+              "Branches": [
+                {
+                  "StartAt": "StartTranscription",
+                  "States": {
+                    "StartTranscription": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::lambda:invoke",
+                      "Parameters": {
+                        "FunctionName": "hivemind-start-transcription",
+                        "Payload": {
+                          "videoId.$": "$.detail.videoId",
+                          "s3Uri.$": "States.Format('s3://{}/{}', $.detail.s3Bucket, $.detail.s3Key)"
+                        }
+                      },
+                      "ResultPath": "$.transcription",
+                      "Next": "WaitForTranscription"
+                    },
+                    "WaitForTranscription": {
+                      "Type": "Wait",
+                      "Seconds": 30,
+                      "Next": "CheckTranscription"
+                    },
+                    "CheckTranscription": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::lambda:invoke",
+                      "Parameters": {
+                        "FunctionName": "hivemind-check-transcription",
+                        "Payload": {
+                          "jobName.$": "$.transcription.Payload.jobName"
+                        }
+                      },
+                      "ResultPath": "$.transcriptionStatus",
+                      "Next": "TranscriptionComplete?"
+                    },
+                    "TranscriptionComplete?": {
+                      "Type": "Choice",
+                      "Choices": [{
+                        "Variable": "$.transcriptionStatus.Payload.completed",
+                        "BooleanEquals": true,
+                        "Next": "TranscriptionDone"
+                      }],
+                      "Default": "WaitForTranscription"
+                    },
+                    "TranscriptionDone": {
+                      "Type": "Pass",
+                      "End": true
+                    }
+                  }
+                },
+                {
+                  "StartAt": "StartSceneDetection",
+                  "States": {
+                    "StartSceneDetection": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::lambda:invoke",
+                      "Parameters": {
+                        "FunctionName": "hivemind-detect-scenes",
+                        "Payload": {
+                          "videoId.$": "$.detail.videoId",
+                          "s3Bucket.$": "$.detail.s3Bucket",
+                          "s3Key.$": "$.detail.s3Key"
+                        }
+                      },
+                      "ResultPath": "$.sceneJob",
+                      "Next": "WaitForScenes"
+                    },
+                    "WaitForScenes": {
+                      "Type": "Wait",
+                      "Seconds": 30,
+                      "Next": "CheckScenes"
+                    },
+                    "CheckScenes": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::lambda:invoke",
+                      "Parameters": {
+                        "FunctionName": "hivemind-check-rekognition",
+                        "Payload": {
+                          "jobId.$": "$.sceneJob.Payload.jobId",
+                          "jobType": "scenes"
+                        }
+                      },
+                      "ResultPath": "$.sceneStatus",
+                      "Next": "ScenesComplete?"
+                    },
+                    "ScenesComplete?": {
+                      "Type": "Choice",
+                      "Choices": [{
+                        "Variable": "$.sceneStatus.Payload.completed",
+                        "BooleanEquals": true,
+                        "Next": "ScenesDone"
+                      }],
+                      "Default": "WaitForScenes"
+                    },
+                    "ScenesDone": {
+                      "Type": "Pass",
+                      "End": true
+                    }
+                  }
+                },
+                {
+                  "StartAt": "StartLabelDetection",
+                  "States": {
+                    "StartLabelDetection": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::lambda:invoke",
+                      "Parameters": {
+                        "FunctionName": "hivemind-detect-labels",
+                        "Payload": {
+                          "videoId.$": "$.detail.videoId",
+                          "s3Bucket.$": "$.detail.s3Bucket",
+                          "s3Key.$": "$.detail.s3Key"
+                        }
+                      },
+                      "ResultPath": "$.labelJob",
+                      "Next": "WaitForLabels"
+                    },
+                    "WaitForLabels": {
+                      "Type": "Wait",
+                      "Seconds": 30,
+                      "Next": "CheckLabels"
+                    },
+                    "CheckLabels": {
+                      "Type": "Task",
+                      "Resource": "arn:aws:states:::lambda:invoke",
+                      "Parameters": {
+                        "FunctionName": "hivemind-check-rekognition",
+                        "Payload": {
+                          "jobId.$": "$.labelJob.Payload.jobId",
+                          "jobType": "labels"
+                        }
+                      },
+                      "ResultPath": "$.labelStatus",
+                      "Next": "LabelsComplete?"
+                    },
+                    "LabelsComplete?": {
+                      "Type": "Choice",
+                      "Choices": [{
+                        "Variable": "$.labelStatus.Payload.completed",
+                        "BooleanEquals": true,
+                        "Next": "LabelsDone"
+                      }],
+                      "Default": "WaitForLabels"
+                    },
+                    "LabelsDone": {
+                      "Type": "Pass",
+                      "End": true
+                    }
+                  }
+                }
+              ]
+            },
+            "StoreResults": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "hivemind-store-video-results",
+                "Payload": {
+                  "videoId.$": "$.detail.videoId",
+                  "results.$": "$"
+                }
+              },
+              "End": true
+            }
+          }
+        }
+
+  # IAM Roles
+  StepFunctionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: StepFunctionsPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:hivemind-*
+
+  EventBridgeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: EventBridgePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: states:StartExecution
+                Resource: !GetAtt VideoProcessingStateMachine.Arn
+
+Outputs:
+  MediaBucketName:
+    Value: !Ref MediaBucket
+  VideoUploadedRuleArn:
+    Value: !GetAtt VideoUploadedRule.Arn
+  StateMachineArn:
+    Value: !GetAtt VideoProcessingStateMachine.Arn

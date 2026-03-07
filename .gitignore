@@ -4,6 +4,8 @@
 .env
 .env.*
 !.env.example
+!.env.local.example
+!.env.production.example
 *.pem
 *.key
 *.p12
@@ -96,6 +98,7 @@ tmp/
 .frontend.pid
 cloudformation-output.json
 sam-output.json
+backend-aws/cdk-infrastructure/
 
 # ============================================
 # IDE & EDITORS

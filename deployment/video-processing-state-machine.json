@@ -1,0 +1,204 @@
+{
+  "Comment": "HiveMind Video Processing Pipeline",
+  "StartAt": "ValidateVideo",
+  "States": {
+    "ValidateVideo": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "hivemind-stepfunctions-validate-video",
+        "Payload": {
+          "videoId.$": "$.videoId",
+          "s3Bucket.$": "$.s3Bucket",
+          "s3Key.$": "$.s3Key"
+        }
+      },
+      "ResultPath": "$.validation",
+      "Next": "ParallelProcessing",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "ProcessingFailed"
+        }
+      ]
+    },
+    "ParallelProcessing": {
+      "Type": "Parallel",
+      "Next": "StoreResults",
+      "Branches": [
+        {
+          "StartAt": "StartTranscription",
+          "States": {
+            "StartTranscription": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "hivemind-stepfunctions-start-transcription",
+                "Payload": {
+                  "videoId.$": "$.videoId",
+                  "s3Bucket.$": "$.s3Bucket",
+                  "s3Key.$": "$.s3Key"
+                }
+              },
+              "ResultPath": "$.transcriptionJob",
+              "Next": "WaitForTranscription"
+            },
+            "WaitForTranscription": {
+              "Type": "Wait",
+              "Seconds": 30,
+              "Next": "CheckTranscription"
+            },
+            "CheckTranscription": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "hivemind-stepfunctions-check-transcription",
+                "Payload": {
+                  "jobName.$": "$.transcriptionJob.Payload.jobName"
+                }
+              },
+              "ResultPath": "$.transcriptionStatus",
+              "Next": "TranscriptionComplete?"
+            },
+            "TranscriptionComplete?": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.transcriptionStatus.Payload.completed",
+                  "BooleanEquals": true,
+                  "Next": "TranscriptionDone"
+                }
+              ],
+              "Default": "WaitForTranscription"
+            },
+            "TranscriptionDone": {
+              "Type": "Pass",
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "StartSceneDetection",
+          "States": {
+            "StartSceneDetection": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "hivemind-stepfunctions-detect-scenes",
+                "Payload": {
+                  "videoId.$": "$.videoId",
+                  "s3Bucket.$": "$.s3Bucket",
+                  "s3Key.$": "$.s3Key"
+                }
+              },
+              "ResultPath": "$.sceneJob",
+              "Next": "WaitForScenes"
+            },
+            "WaitForScenes": {
+              "Type": "Wait",
+              "Seconds": 30,
+              "Next": "CheckScenes"
+            },
+            "CheckScenes": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "hivemind-stepfunctions-check-rekognition",
+                "Payload": {
+                  "jobId.$": "$.sceneJob.Payload.jobId",
+                  "jobType": "scenes"
+                }
+              },
+              "ResultPath": "$.sceneStatus",
+              "Next": "ScenesComplete?"
+            },
+            "ScenesComplete?": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.sceneStatus.Payload.completed",
+                  "BooleanEquals": true,
+                  "Next": "ScenesDone"
+                }
+              ],
+              "Default": "WaitForScenes"
+            },
+            "ScenesDone": {
+              "Type": "Pass",
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "StartLabelDetection",
+          "States": {
+            "StartLabelDetection": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "hivemind-stepfunctions-detect-labels",
+                "Payload": {
+                  "videoId.$": "$.videoId",
+                  "s3Bucket.$": "$.s3Bucket",
+                  "s3Key.$": "$.s3Key"
+                }
+              },
+              "ResultPath": "$.labelJob",
+              "Next": "WaitForLabels"
+            },
+            "WaitForLabels": {
+              "Type": "Wait",
+              "Seconds": 30,
+              "Next": "CheckLabels"
+            },
+            "CheckLabels": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "hivemind-stepfunctions-check-rekognition",
+                "Payload": {
+                  "jobId.$": "$.labelJob.Payload.jobId",
+                  "jobType": "labels"
+                }
+              },
+              "ResultPath": "$.labelStatus",
+              "Next": "LabelsComplete?"
+            },
+            "LabelsComplete?": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.labelStatus.Payload.completed",
+                  "BooleanEquals": true,
+                  "Next": "LabelsDone"
+                }
+              ],
+              "Default": "WaitForLabels"
+            },
+            "LabelsDone": {
+              "Type": "Pass",
+              "End": true
+            }
+          }
+        }
+      ]
+    },
+    "StoreResults": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "hivemind-stepfunctions-store-video-results",
+        "Payload": {
+          "videoId.$": "$.videoId",
+          "results.$": "$"
+        }
+      },
+      "End": true
+    },
+    "ProcessingFailed": {
+      "Type": "Fail",
+      "Error": "VideoProcessingError",
+      "Cause": "Video processing pipeline failed"
+    }
+  }
+}
