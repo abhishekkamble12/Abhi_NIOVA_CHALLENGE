@@ -1,0 +1,228 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: HiveMind Lambda Microservices
+
+Globals:
+  Function:
+    Runtime: python3.11
+    Timeout: 30
+    MemorySize: 512
+    Environment:
+      Variables:
+        AWS_REGION: !Ref AWS::Region
+        DB_HOST: !GetAtt HiveMindDBCluster.Endpoint.Address
+        DB_PORT: 5432
+        DB_NAME: hiveminddb
+        REDIS_HOST: !GetAtt RedisCluster.RedisEndpoint.Address
+        S3_BUCKET: !Ref MediaBucket
+    Layers:
+      - !Ref DependenciesLayer
+
+Parameters:
+  DBUsername:
+    Type: String
+    Default: postgres
+  DBPassword:
+    Type: String
+    NoEcho: true
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+
+Resources:
+
+  # Lambda Layer for dependencies
+  DependenciesLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: hivemind-dependencies
+      ContentUri: ./layer/
+      CompatibleRuntimes:
+        - python3.11
+
+  # S3 Bucket
+  MediaBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub hivemind-media-${AWS::AccountId}
+      VersioningConfiguration:
+        Status: Enabled
+
+  # Security Groups
+  LambdaSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Lambda functions
+      VpcId: !Ref VpcId
+
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Aurora database
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref LambdaSecurityGroup
+
+  # Aurora Cluster
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: HiveMind DB
+      SubnetIds: !Ref SubnetIds
+
+  HiveMindDBCluster:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      Engine: aurora-postgresql
+      EngineMode: provisioned
+      DatabaseName: hiveminddb
+      MasterUsername: !Ref DBUsername
+      MasterUserPassword: !Ref DBPassword
+      VpcSecurityGroupIds:
+        - !Ref DBSecurityGroup
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      ServerlessV2ScalingConfiguration:
+        MinCapacity: 0.5
+        MaxCapacity: 2
+
+  HiveMindDBInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBClusterIdentifier: !Ref HiveMindDBCluster
+      DBInstanceClass: db.serverless
+      Engine: aurora-postgresql
+
+  # ElastiCache Redis
+  RedisSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      Description: HiveMind Redis
+      SubnetIds: !Ref SubnetIds
+
+  RedisCluster:
+    Type: AWS::ElastiCache::CacheCluster
+    Properties:
+      CacheNodeType: cache.t3.micro
+      Engine: redis
+      NumCacheNodes: 1
+      VpcSecurityGroupIds:
+        - !Ref LambdaSecurityGroup
+      CacheSubnetGroupName: !Ref RedisSubnetGroup
+
+  # API Gateway
+  HiveMindApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: prod
+      Cors:
+        AllowOrigin: "'*'"
+        AllowMethods: "'*'"
+        AllowHeaders: "'*'"
+
+  # Social Media Functions
+  CreateBrandFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./handlers/
+      Handler: social_create_brand.handler
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref LambdaSecurityGroup
+        SubnetIds: !Ref SubnetIds
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref HiveMindApi
+            Path: /api/v1/social/brands
+            Method: POST
+
+  GetBrandFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./handlers/
+      Handler: social_get_brand.handler
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref LambdaSecurityGroup
+        SubnetIds: !Ref SubnetIds
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref HiveMindApi
+            Path: /api/v1/social/brands/{brand_id}
+            Method: GET
+
+  ListBrandsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./handlers/
+      Handler: social_list_brands.handler
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref LambdaSecurityGroup
+        SubnetIds: !Ref SubnetIds
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref HiveMindApi
+            Path: /api/v1/social/brands
+            Method: GET
+
+  GenerateContentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./handlers/
+      Handler: social_generate_content.handler
+      Timeout: 60
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref LambdaSecurityGroup
+        SubnetIds: !Ref SubnetIds
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref HiveMindApi
+            Path: /api/v1/social/generate/content
+            Method: POST
+
+  GetPostFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./handlers/
+      Handler: social_get_post.handler
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref LambdaSecurityGroup
+        SubnetIds: !Ref SubnetIds
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref HiveMindApi
+            Path: /api/v1/social/posts/{post_id}
+            Method: GET
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway URL
+    Value: !Sub https://${HiveMindApi}.execute-api.${AWS::Region}.amazonaws.com/prod/
+  
+  DatabaseEndpoint:
+    Description: Aurora endpoint
+    Value: !GetAtt HiveMindDBCluster.Endpoint.Address
+  
+  RedisEndpoint:
+    Description: Redis endpoint
+    Value: !GetAtt RedisCluster.RedisEndpoint.Address
+  
+  S3Bucket:
+    Description: Media bucket
+    Value: !Ref MediaBucket

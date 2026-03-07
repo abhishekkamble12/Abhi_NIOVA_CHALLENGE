@@ -1,0 +1,6 @@
+# Lambda Layer Dependencies
+asyncpg==0.29.0
+redis==5.0.1
+httpx==0.26.0
+aws-requests-auth==0.4.3
+python-dotenv==1.0.0

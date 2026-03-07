@@ -1,0 +1,197 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: OpenSearch Domain in VPC with Lambda Access
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: At least 2 private subnets in different AZs
+
+Resources:
+
+  # Security Group for OpenSearch
+  OpenSearchSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: OpenSearch domain access
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref LambdaSecurityGroup
+          Description: Allow HTTPS from Lambda
+      Tags:
+        - Key: Name
+          Value: hivemind-opensearch-sg
+
+  # Security Group for Lambda
+  LambdaSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Lambda functions access
+      VpcId: !Ref VpcId
+      Tags:
+        - Key: Name
+          Value: hivemind-lambda-sg
+
+  # OpenSearch Domain in VPC
+  OpenSearchDomain:
+    Type: AWS::OpenSearchService::Domain
+    Properties:
+      DomainName: hivemind-embeddings
+      EngineVersion: OpenSearch_2.11
+      ClusterConfig:
+        InstanceType: t3.small.search
+        InstanceCount: 2  # Multi-AZ for HA
+        DedicatedMasterEnabled: false
+        ZoneAwarenessEnabled: true
+        ZoneAwarenessConfig:
+          AvailabilityZoneCount: 2
+      EBSOptions:
+        EBSEnabled: true
+        VolumeSize: 20
+        VolumeType: gp3
+        Iops: 3000
+      VPCOptions:
+        SubnetIds: !Ref SubnetIds
+        SecurityGroupIds:
+          - !Ref OpenSearchSecurityGroup
+      EncryptionAtRestOptions:
+        Enabled: true
+        KmsKeyId: !GetAtt OpenSearchKMSKey.Arn
+      NodeToNodeEncryptionOptions:
+        Enabled: true
+      DomainEndpointOptions:
+        EnforceHTTPS: true
+        TLSSecurityPolicy: Policy-Min-TLS-1-2-2019-07
+      AdvancedSecurityOptions:
+        Enabled: true
+        InternalUserDatabaseEnabled: false
+        MasterUserOptions:
+          MasterUserARN: !GetAtt OpenSearchAccessRole.Arn
+      AccessPolicies:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !GetAtt LambdaRole.Arn
+            Action:
+              - es:ESHttpGet
+              - es:ESHttpPost
+              - es:ESHttpPut
+              - es:ESHttpDelete
+            Resource: !Sub arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/hivemind-embeddings/*
+
+  # KMS Key for OpenSearch encryption
+  OpenSearchKMSKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: KMS key for OpenSearch encryption at rest
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
+            Action: kms:*
+            Resource: '*'
+          - Sid: Allow OpenSearch to use the key
+            Effect: Allow
+            Principal:
+              Service: es.amazonaws.com
+            Action:
+              - kms:Decrypt
+              - kms:CreateGrant
+            Resource: '*'
+
+  OpenSearchKMSKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/hivemind-opensearch
+      TargetKeyId: !Ref OpenSearchKMSKey
+
+  # IAM Role for OpenSearch master user
+  OpenSearchAccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: es.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess
+
+  # IAM Role for Lambda with OpenSearch access
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      Policies:
+        - PolicyName: OpenSearchAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - es:ESHttpGet
+                  - es:ESHttpPost
+                  - es:ESHttpPut
+                  - es:ESHttpDelete
+                Resource: !Sub ${OpenSearchDomain.Arn}/*
+
+  # VPC Endpoint for OpenSearch (optional but recommended)
+  OpenSearchVPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VpcId
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.es
+      VpcEndpointType: Interface
+      SubnetIds: !Ref SubnetIds
+      SecurityGroupIds:
+        - !Ref OpenSearchSecurityGroup
+      PrivateDnsEnabled: true
+
+Outputs:
+  OpenSearchDomainEndpoint:
+    Description: OpenSearch domain endpoint
+    Value: !GetAtt OpenSearchDomain.DomainEndpoint
+    Export:
+      Name: !Sub ${AWS::StackName}-OpenSearchEndpoint
+
+  OpenSearchDomainArn:
+    Description: OpenSearch domain ARN
+    Value: !GetAtt OpenSearchDomain.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-OpenSearchArn
+
+  OpenSearchSecurityGroupId:
+    Description: Security group for OpenSearch
+    Value: !Ref OpenSearchSecurityGroup
+    Export:
+      Name: !Sub ${AWS::StackName}-OpenSearchSG
+
+  LambdaSecurityGroupId:
+    Description: Security group for Lambda
+    Value: !Ref LambdaSecurityGroup
+    Export:
+      Name: !Sub ${AWS::StackName}-LambdaSG
+
+  OpenSearchKMSKeyId:
+    Description: KMS key for OpenSearch encryption
+    Value: !Ref OpenSearchKMSKey
+    Export:
+      Name: !Sub ${AWS::StackName}-OpenSearchKMSKey

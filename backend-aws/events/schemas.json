@@ -1,0 +1,89 @@
+{
+  "VideoUploaded": {
+    "type": "object",
+    "properties": {
+      "version": {"type": "string", "const": "1.0"},
+      "id": {"type": "string"},
+      "detail-type": {"type": "string", "const": "VideoUploaded"},
+      "source": {"type": "string", "const": "hivemind.video"},
+      "time": {"type": "string", "format": "date-time"},
+      "detail": {
+        "type": "object",
+        "properties": {
+          "videoId": {"type": "string"},
+          "s3Bucket": {"type": "string"},
+          "s3Key": {"type": "string"},
+          "userId": {"type": "string"},
+          "fileSize": {"type": "number"},
+          "duration": {"type": "number"},
+          "format": {"type": "string"}
+        },
+        "required": ["videoId", "s3Bucket", "s3Key", "userId"]
+      }
+    }
+  },
+  "PostGenerated": {
+    "type": "object",
+    "properties": {
+      "version": {"type": "string", "const": "1.0"},
+      "id": {"type": "string"},
+      "detail-type": {"type": "string", "const": "PostGenerated"},
+      "source": {"type": "string", "const": "hivemind.social"},
+      "time": {"type": "string", "format": "date-time"},
+      "detail": {
+        "type": "object",
+        "properties": {
+          "postId": {"type": "string"},
+          "brandId": {"type": "string"},
+          "platform": {"type": "string", "enum": ["instagram", "linkedin", "twitter"]},
+          "content": {"type": "string"},
+          "embedding": {"type": "array", "items": {"type": "number"}},
+          "generatedBy": {"type": "string", "const": "bedrock-claude"}
+        },
+        "required": ["postId", "brandId", "platform", "content"]
+      }
+    }
+  },
+  "ArticleRead": {
+    "type": "object",
+    "properties": {
+      "version": {"type": "string", "const": "1.0"},
+      "id": {"type": "string"},
+      "detail-type": {"type": "string", "const": "ArticleRead"},
+      "source": {"type": "string", "const": "hivemind.news"},
+      "time": {"type": "string", "format": "date-time"},
+      "detail": {
+        "type": "object",
+        "properties": {
+          "articleId": {"type": "string"},
+          "userId": {"type": "string"},
+          "readDuration": {"type": "number"},
+          "scrollDepth": {"type": "number"},
+          "category": {"type": "string"}
+        },
+        "required": ["articleId", "userId"]
+      }
+    }
+  },
+  "EngagementTracked": {
+    "type": "object",
+    "properties": {
+      "version": {"type": "string", "const": "1.0"},
+      "id": {"type": "string"},
+      "detail-type": {"type": "string", "const": "EngagementTracked"},
+      "source": {"type": "string", "const": "hivemind.social"},
+      "time": {"type": "string", "format": "date-time"},
+      "detail": {
+        "type": "object",
+        "properties": {
+          "postId": {"type": "string"},
+          "platform": {"type": "string"},
+          "engagementType": {"type": "string", "enum": ["like", "comment", "share", "click"]},
+          "count": {"type": "number"},
+          "timestamp": {"type": "string", "format": "date-time"}
+        },
+        "required": ["postId", "platform", "engagementType", "count"]
+      }
+    }
+  }
+}

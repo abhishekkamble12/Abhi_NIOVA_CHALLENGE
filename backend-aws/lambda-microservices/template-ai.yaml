@@ -1,0 +1,163 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: HiveMind AI Lambda Functions with Bedrock, Transcribe, Rekognition
+
+Globals:
+  Function:
+    Runtime: python3.11
+    Timeout: 300
+    MemorySize: 512
+    Environment:
+      Variables:
+        AWS_REGION: ap-south-1
+        S3_BUCKET: !Ref MediaBucket
+
+Resources:
+
+  # S3 Bucket for media
+  MediaBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub hivemind-media-${AWS::AccountId}
+
+  # Lambda Layer
+  SharedLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: hivemind-shared
+      ContentUri: layers/
+      CompatibleRuntimes:
+        - python3.11
+
+  # IAM Role
+  AILambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: AIServicesPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - transcribe:StartTranscriptionJob
+                  - transcribe:GetTranscriptionJob
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - rekognition:DetectLabels
+                  - rekognition:DetectText
+                  - rekognition:StartLabelDetection
+                  - rekognition:GetLabelDetection
+                  - rekognition:StartSegmentDetection
+                  - rekognition:GetSegmentDetection
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub ${MediaBucket.Arn}/*
+
+  # Lambda Functions
+  GenerateContentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: hivemind-ai-generate-content
+      CodeUri: .
+      Handler: handlers.ai_generate_content.handler
+      Role: !GetAtt AILambdaRole.Arn
+      Layers:
+        - !Ref SharedLayer
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /ai/generate
+            Method: POST
+
+  ProcessVideoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: hivemind-ai-process-video
+      CodeUri: .
+      Handler: handlers.ai_process_video.handler
+      Role: !GetAtt AILambdaRole.Arn
+      Layers:
+        - !Ref SharedLayer
+      Events:
+        S3Event:
+          Type: S3
+          Properties:
+            Bucket: !Ref MediaBucket
+            Events: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: videos/
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /ai/video/process
+            Method: POST
+
+  AnalyzeArticleFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: hivemind-ai-analyze-article
+      CodeUri: .
+      Handler: handlers.ai_analyze_article.handler
+      Role: !GetAtt AILambdaRole.Arn
+      Layers:
+        - !Ref SharedLayer
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /ai/article/analyze
+            Method: POST
+
+  AnalyzeImageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: hivemind-ai-analyze-image
+      CodeUri: .
+      Handler: handlers.ai_analyze_image.handler
+      Role: !GetAtt AILambdaRole.Arn
+      Layers:
+        - !Ref SharedLayer
+      Events:
+        S3Event:
+          Type: S3
+          Properties:
+            Bucket: !Ref MediaBucket
+            Events: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: images/
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /ai/image/analyze
+            Method: POST
+
+Outputs:
+  ApiEndpoint:
+    Value: !Sub https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod
+  MediaBucket:
+    Value: !Ref MediaBucket

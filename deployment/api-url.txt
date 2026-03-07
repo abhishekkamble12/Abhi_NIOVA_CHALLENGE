@@ -1,0 +1,1 @@
+https://wcp5c3ga8b.execute-api.ap-south-1.amazonaws.com/prod

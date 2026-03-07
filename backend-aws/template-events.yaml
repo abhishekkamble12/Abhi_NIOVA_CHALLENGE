@@ -1,0 +1,210 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: HiveMind Event-Driven Architecture
+
+Resources:
+
+  # EventBridge Bus
+  HiveMindEventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: hivemind-bus
+
+  # Step Functions State Machines
+  VideoProcessingStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Name: hivemind-video-processing
+      DefinitionUri: stepfunctions/video-processing.json
+      Role: !GetAtt StepFunctionsRole.Arn
+      Events:
+        VideoUploadedEvent:
+          Type: EventBridgeRule
+          Properties:
+            EventBusName: !Ref HiveMindEventBus
+            Pattern:
+              source:
+                - hivemind.video
+              detail-type:
+                - VideoUploaded
+
+  ContentLearningStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Name: hivemind-content-learning
+      DefinitionUri: stepfunctions/content-learning.json
+      Role: !GetAtt StepFunctionsRole.Arn
+      Events:
+        EngagementEvent:
+          Type: EventBridgeRule
+          Properties:
+            EventBusName: !Ref HiveMindEventBus
+            Pattern:
+              source:
+                - hivemind.social
+              detail-type:
+                - EngagementTracked
+
+  # EventBridge Rules
+  VideoUploadedRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: hivemind-video-uploaded
+      EventBusName: !Ref HiveMindEventBus
+      EventPattern:
+        source:
+          - hivemind.video
+        detail-type:
+          - VideoUploaded
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt VideoProcessingStateMachine.Arn
+          RoleArn: !GetAtt EventBridgeRole.Arn
+
+  PostGeneratedRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: hivemind-post-generated
+      EventBusName: !Ref HiveMindEventBus
+      EventPattern:
+        source:
+          - hivemind.social
+        detail-type:
+          - PostGenerated
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt StorePostFunction.Arn
+          Id: StorePost
+
+  ArticleReadRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: hivemind-article-read
+      EventBusName: !Ref HiveMindEventBus
+      EventPattern:
+        source:
+          - hivemind.news
+        detail-type:
+          - ArticleRead
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt UpdateRecommendationsFunction.Arn
+          Id: UpdateRecs
+
+  EngagementTrackedRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: hivemind-engagement-tracked
+      EventBusName: !Ref HiveMindEventBus
+      EventPattern:
+        source:
+          - hivemind.social
+        detail-type:
+          - EngagementTracked
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt ContentLearningStateMachine.Arn
+          RoleArn: !GetAtt EventBridgeRole.Arn
+
+  # Lambda Functions
+  StorePostFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: hivemind-store-post
+      Runtime: python3.11
+      Handler: index.handler
+      InlineCode: |
+        import json
+        def handler(event, context):
+            print(f"Storing post: {event['detail']['postId']}")
+            return {'statusCode': 200}
+
+  UpdateRecommendationsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: hivemind-update-recommendations
+      Runtime: python3.11
+      Handler: index.handler
+      InlineCode: |
+        import json
+        def handler(event, context):
+            print(f"Updating recommendations for article: {event['detail']['articleId']}")
+            return {'statusCode': 200}
+
+  # IAM Roles
+  StepFunctionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: StepFunctionsPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - events:PutEvents
+                Resource: !GetAtt HiveMindEventBus.Arn
+
+  EventBridgeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: EventBridgePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - states:StartExecution
+                Resource:
+                  - !GetAtt VideoProcessingStateMachine.Arn
+                  - !GetAtt ContentLearningStateMachine.Arn
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource:
+                  - !GetAtt StorePostFunction.Arn
+                  - !GetAtt UpdateRecommendationsFunction.Arn
+
+  # Lambda Permissions
+  StorePostPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref StorePostFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt PostGeneratedRule.Arn
+
+  UpdateRecsPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref UpdateRecommendationsFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt ArticleReadRule.Arn
+
+Outputs:
+  EventBusName:
+    Value: !Ref HiveMindEventBus
+  VideoProcessingStateMachine:
+    Value: !Ref VideoProcessingStateMachine
+  ContentLearningStateMachine:
+    Value: !Ref ContentLearningStateMachine

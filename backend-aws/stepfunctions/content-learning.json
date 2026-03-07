@@ -1,0 +1,141 @@
+{
+  "Comment": "Content Learning Pipeline - Analyze engagement, extract patterns, update recommendations",
+  "StartAt": "FetchEngagementData",
+  "States": {
+    "FetchEngagementData": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "hivemind-fetch-engagement",
+        "Payload": {
+          "postId.$": "$.detail.postId",
+          "platform.$": "$.detail.platform"
+        }
+      },
+      "ResultPath": "$.engagement",
+      "Next": "AnalyzePerformance"
+    },
+    "AnalyzePerformance": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "hivemind-analyze-performance",
+        "Payload": {
+          "postId.$": "$.detail.postId",
+          "engagement.$": "$.engagement.Payload"
+        }
+      },
+      "ResultPath": "$.analysis",
+      "Next": "IsHighPerforming?"
+    },
+    "IsHighPerforming?": {
+      "Type": "Choice",
+      "Choices": [{
+        "Variable": "$.analysis.Payload.score",
+        "NumericGreaterThan": 0.7,
+        "Next": "ExtractPatterns"
+      }],
+      "Default": "StoreBasicMetrics"
+    },
+    "ExtractPatterns": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "hivemind-extract-patterns",
+        "Payload": {
+          "postId.$": "$.detail.postId",
+          "content.$": "$.detail.content",
+          "engagement.$": "$.engagement.Payload"
+        }
+      },
+      "ResultPath": "$.patterns",
+      "Next": "ParallelLearning"
+    },
+    "ParallelLearning": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "UpdateEmbeddings",
+          "States": {
+            "UpdateEmbeddings": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "hivemind-update-embeddings",
+                "Payload": {
+                  "postId.$": "$.detail.postId",
+                  "patterns.$": "$.patterns.Payload"
+                }
+              },
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "UpdateRecommendations",
+          "States": {
+            "UpdateRecommendations": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "hivemind-update-recommendations",
+                "Payload": {
+                  "brandId.$": "$.detail.brandId",
+                  "patterns.$": "$.patterns.Payload"
+                }
+              },
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "TrainModel",
+          "States": {
+            "TrainModel": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "hivemind-train-model",
+                "Payload": {
+                  "platform.$": "$.detail.platform",
+                  "patterns.$": "$.patterns.Payload"
+                }
+              },
+              "End": true
+            }
+          }
+        }
+      ],
+      "ResultPath": "$.learning",
+      "Next": "PublishLearningComplete"
+    },
+    "StoreBasicMetrics": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "hivemind-store-metrics",
+        "Payload": {
+          "postId.$": "$.detail.postId",
+          "engagement.$": "$.engagement.Payload"
+        }
+      },
+      "Next": "PublishLearningComplete"
+    },
+    "PublishLearningComplete": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::events:putEvents",
+      "Parameters": {
+        "Entries": [{
+          "Source": "hivemind.learning",
+          "DetailType": "LearningComplete",
+          "Detail": {
+            "postId.$": "$.detail.postId",
+            "improved": true
+          },
+          "EventBusName": "hivemind-bus"
+        }]
+      },
+      "End": true
+    }
+  }
+}

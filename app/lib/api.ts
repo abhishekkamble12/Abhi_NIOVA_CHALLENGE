@@ -1,8 +1,22 @@
 'use client';
 
-const API_BASE_URL = typeof window !== 'undefined' 
-  ? (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1')
-  : 'http://localhost:8000/api/v1';
+// API Gateway endpoint (production) or localhost (development)
+const getApiBaseUrl = () => {
+  // Server-side: use environment variable or localhost
+  if (typeof window === 'undefined') {
+    return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  }
+  
+  // Client-side: use environment variable or localhost
+  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
+// Log API endpoint for debugging
+if (typeof window !== 'undefined') {
+  console.log('🔗 API Endpoint:', API_BASE_URL);
+}
 
 export const apiClient = {
   // ==================== SOCIAL MEDIA ====================

@@ -1,0 +1,162 @@
+{
+  "Comment": "Video Processing Pipeline - Transcribe, Scene Detection, Label Detection",
+  "StartAt": "ValidateVideo",
+  "States": {
+    "ValidateVideo": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "hivemind-validate-video",
+        "Payload": {
+          "videoId.$": "$.detail.videoId",
+          "s3Bucket.$": "$.detail.s3Bucket",
+          "s3Key.$": "$.detail.s3Key"
+        }
+      },
+      "ResultPath": "$.validation",
+      "Next": "ParallelProcessing",
+      "Catch": [{
+        "ErrorEquals": ["States.ALL"],
+        "Next": "ProcessingFailed"
+      }]
+    },
+    "ParallelProcessing": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "StartTranscription",
+          "States": {
+            "StartTranscription": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "hivemind-start-transcription",
+                "Payload": {
+                  "videoId.$": "$.detail.videoId",
+                  "s3Uri.$": "States.Format('s3://{}/{}', $.detail.s3Bucket, $.detail.s3Key)"
+                }
+              },
+              "ResultPath": "$.transcription",
+              "Next": "WaitForTranscription"
+            },
+            "WaitForTranscription": {
+              "Type": "Wait",
+              "Seconds": 30,
+              "Next": "CheckTranscription"
+            },
+            "CheckTranscription": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "hivemind-check-transcription",
+                "Payload": {
+                  "jobName.$": "$.transcription.Payload.jobName"
+                }
+              },
+              "ResultPath": "$.transcriptionStatus",
+              "Next": "TranscriptionComplete?"
+            },
+            "TranscriptionComplete?": {
+              "Type": "Choice",
+              "Choices": [{
+                "Variable": "$.transcriptionStatus.Payload.status",
+                "StringEquals": "COMPLETED",
+                "Next": "TranscriptionDone"
+              }],
+              "Default": "WaitForTranscription"
+            },
+            "TranscriptionDone": {
+              "Type": "Pass",
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "DetectScenes",
+          "States": {
+            "DetectScenes": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "hivemind-detect-scenes",
+                "Payload": {
+                  "videoId.$": "$.detail.videoId",
+                  "s3Bucket.$": "$.detail.s3Bucket",
+                  "s3Key.$": "$.detail.s3Key"
+                }
+              },
+              "ResultPath": "$.scenes",
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "DetectLabels",
+          "States": {
+            "DetectLabels": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "hivemind-detect-labels",
+                "Payload": {
+                  "videoId.$": "$.detail.videoId",
+                  "s3Bucket.$": "$.detail.s3Bucket",
+                  "s3Key.$": "$.detail.s3Key"
+                }
+              },
+              "ResultPath": "$.labels",
+              "End": true
+            }
+          }
+        }
+      ],
+      "ResultPath": "$.processing",
+      "Next": "StoreResults"
+    },
+    "StoreResults": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "hivemind-store-video-results",
+        "Payload": {
+          "videoId.$": "$.detail.videoId",
+          "results.$": "$.processing"
+        }
+      },
+      "ResultPath": "$.stored",
+      "Next": "PublishVideoProcessed"
+    },
+    "PublishVideoProcessed": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::events:putEvents",
+      "Parameters": {
+        "Entries": [{
+          "Source": "hivemind.video",
+          "DetailType": "VideoProcessed",
+          "Detail": {
+            "videoId.$": "$.detail.videoId",
+            "status": "completed"
+          },
+          "EventBusName": "hivemind-bus"
+        }]
+      },
+      "End": true
+    },
+    "ProcessingFailed": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::events:putEvents",
+      "Parameters": {
+        "Entries": [{
+          "Source": "hivemind.video",
+          "DetailType": "VideoProcessingFailed",
+          "Detail": {
+            "videoId.$": "$.detail.videoId",
+            "error.$": "$.error"
+          },
+          "EventBusName": "hivemind-bus"
+        }]
+      },
+      "End": true
+    }
+  }
+}

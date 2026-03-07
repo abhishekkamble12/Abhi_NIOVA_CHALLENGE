@@ -1,0 +1,269 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: HiveMind API Gateway with Lambda Integration
+
+Parameters:
+  Environment:
+    Type: String
+    Default: prod
+    AllowedValues: [dev, staging, prod]
+
+Globals:
+  Function:
+    Runtime: python3.11
+    Timeout: 30
+    MemorySize: 512
+    Environment:
+      Variables:
+        AWS_REGION: ap-south-1
+        ENVIRONMENT: !Ref Environment
+  Api:
+    Cors:
+      AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+      AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+      AllowOrigin: "'*'"
+
+Resources:
+
+  # ==================== API Gateway ====================
+  HiveMindApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: HiveMindAPI
+      StageName: !Ref Environment
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+
+  # ==================== Lambda Functions ====================
+
+  # Social - Create Brand
+  SocialCreateBrandFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: hivemind-social-create-brand
+      CodeUri: lambda-microservices/
+      Handler: handlers.social_create_brand.handler
+      Layers:
+        - !Ref SharedLayer
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref HiveMindApi
+            Path: /social/brands
+            Method: POST
+
+  # Social - Get Brand
+  SocialGetBrandFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: hivemind-social-get-brand
+      CodeUri: lambda-microservices/
+      Handler: handlers.social_get_brand.handler
+      Layers:
+        - !Ref SharedLayer
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref HiveMindApi
+            Path: /social/brands/{brand_id}
+            Method: GET
+
+  # Social - List Brands
+  SocialListBrandsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: hivemind-social-list-brands
+      CodeUri: lambda-microservices/
+      Handler: handlers.social_list_brands.handler
+      Layers:
+        - !Ref SharedLayer
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref HiveMindApi
+            Path: /social/brands
+            Method: GET
+
+  # Social - Generate Content
+  SocialGenerateContentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: hivemind-social-generate-content
+      CodeUri: lambda-microservices/
+      Handler: handlers.social_generate_content.handler
+      Layers:
+        - !Ref SharedLayer
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: '*'
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref HiveMindApi
+            Path: /social/generate/content
+            Method: POST
+
+  # Social - Get Post
+  SocialGetPostFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: hivemind-social-get-post
+      CodeUri: lambda-microservices/
+      Handler: handlers.social_get_post.handler
+      Layers:
+        - !Ref SharedLayer
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref HiveMindApi
+            Path: /social/posts/{post_id}
+            Method: GET
+
+  # Feed - Personalized
+  FeedPersonalizedFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: hivemind-feed-personalized
+      CodeUri: lambda-microservices/
+      Handler: handlers.feed_personalized.handler
+      Layers:
+        - !Ref SharedLayer
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref HiveMindApi
+            Path: /feed/real/personalized/{userId}
+            Method: GET
+
+  # Video - Upload
+  VideoUploadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: hivemind-video-upload
+      CodeUri: lambda-microservices/
+      Handler: handlers.video_upload_handler.handler
+      Timeout: 300
+      Layers:
+        - !Ref SharedLayer
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+                - s3:GetObject
+              Resource: !Sub arn:aws:s3:::hivemind-media-${AWS::AccountId}/*
+            - Effect: Allow
+              Action:
+                - transcribe:StartTranscriptionJob
+                - rekognition:StartSegmentDetection
+                - rekognition:StartLabelDetection
+              Resource: '*'
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref HiveMindApi
+            Path: /videos/videos/upload
+            Method: POST
+
+  # AI - Generate Content
+  AIGenerateContentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: hivemind-ai-generate-content
+      CodeUri: lambda-microservices/
+      Handler: handlers.ai_generate_content.handler
+      Layers:
+        - !Ref SharedLayer
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: '*'
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref HiveMindApi
+            Path: /ai/generate
+            Method: POST
+
+  # AI - Process Video
+  AIProcessVideoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: hivemind-ai-process-video
+      CodeUri: lambda-microservices/
+      Handler: handlers.ai_process_video.handler
+      Timeout: 300
+      Layers:
+        - !Ref SharedLayer
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - transcribe:StartTranscriptionJob
+                - transcribe:GetTranscriptionJob
+                - rekognition:StartSegmentDetection
+                - rekognition:GetSegmentDetection
+                - rekognition:StartLabelDetection
+                - rekognition:GetLabelDetection
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+              Resource: !Sub arn:aws:s3:::hivemind-media-${AWS::AccountId}/*
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref HiveMindApi
+            Path: /ai/video/process
+            Method: POST
+
+  # ==================== Lambda Layer ====================
+  SharedLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: hivemind-shared-layer
+      ContentUri: lambda-microservices/layers/
+      CompatibleRuntimes:
+        - python3.11
+      RetentionPolicy: Retain
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub https://${HiveMindApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}
+    Export:
+      Name: !Sub ${AWS::StackName}-ApiUrl
+
+  ApiId:
+    Description: API Gateway ID
+    Value: !Ref HiveMindApi
+    Export:
+      Name: !Sub ${AWS::StackName}-ApiId
+
+  # Lambda Function ARNs
+  SocialCreateBrandFunctionArn:
+    Value: !GetAtt SocialCreateBrandFunction.Arn
+  SocialGetBrandFunctionArn:
+    Value: !GetAtt SocialGetBrandFunction.Arn
+  SocialGenerateContentFunctionArn:
+    Value: !GetAtt SocialGenerateContentFunction.Arn
+  FeedPersonalizedFunctionArn:
+    Value: !GetAtt FeedPersonalizedFunction.Arn
+  VideoUploadFunctionArn:
+    Value: !GetAtt VideoUploadFunction.Arn
