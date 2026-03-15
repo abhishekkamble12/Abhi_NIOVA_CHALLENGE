@@ -1,6 +1,11 @@
 """
-Amazon Bedrock Service for HiveMind
-Replaces SentenceTransformers with Bedrock APIs
+Amazon Bedrock Service for HiveMind — Amazon Nova Edition
+==========================================================
+All AI calls use Amazon Nova models via the Converse and invoke_model APIs.
+
+Models:
+  Text/Reasoning → amazon.nova-2-lite-v1:0   (Converse API)
+  Embeddings     → amazon.nova-2-multimodal-embeddings-v1:0  (invoke_model)
 """
 import boto3
 import json
@@ -9,298 +14,193 @@ from typing import List, Optional, Dict, Any
 from botocore.config import Config
 import hashlib
 
-# Configure Bedrock client with retry logic
+# ---------------------------------------------------------------------------
+# Bedrock client
+# ---------------------------------------------------------------------------
 bedrock_config = Config(
     region_name=os.environ.get('AWS_REGION', 'us-east-1'),
-    retries={
-        'max_attempts': 3,
-        'mode': 'adaptive'
-    },
+    retries={'max_attempts': 3, 'mode': 'adaptive'},
     read_timeout=300,
-    connect_timeout=60
+    connect_timeout=60,
 )
 
-# Initialize Bedrock client
 bedrock_runtime = boto3.client(
     service_name='bedrock-runtime',
-    config=bedrock_config
+    config=bedrock_config,
 )
 
-# Model IDs
-EMBEDDING_MODEL = 'amazon.titan-embed-text-v1'
-TEXT_MODEL_FAST = 'amazon.titan-text-express-v1'
-TEXT_MODEL_ADVANCED = 'anthropic.claude-3-sonnet-20240229-v1:0'
-TEXT_MODEL_BUDGET = 'anthropic.claude-3-haiku-20240307-v1:0'
+# ---------------------------------------------------------------------------
+# Nova Model IDs
+# ---------------------------------------------------------------------------
+EMBEDDING_MODEL = os.environ.get(
+    'NOVA_EMBEDDING_MODEL', 'amazon.nova-2-multimodal-embeddings-v1:0'
+)
+TEXT_MODEL = os.environ.get(
+    'NOVA_TEXT_MODEL', 'amazon.nova-2-lite-v1:0'
+)
+EMBEDDING_DIMENSION = int(os.environ.get('NOVA_EMBEDDING_DIMENSION', '1024'))
 
 
 class BedrockService:
-    """
-    Service for Amazon Bedrock AI operations
-    """
-    
+    """Service for Amazon Bedrock AI operations using Nova models."""
+
     def __init__(self, cache_client=None):
-        """
-        Initialize Bedrock service
-        
-        Args:
-            cache_client: Optional Redis client for caching
-        """
         self.bedrock = bedrock_runtime
         self.cache = cache_client
-        self.embedding_dimension = 1536  # Titan embeddings dimension
-    
+        self.embedding_dimension = EMBEDDING_DIMENSION
+
+    # ------------------------------------------------------------------
+    # Embeddings  (Nova Multimodal Embeddings via invoke_model)
+    # ------------------------------------------------------------------
     def generate_embedding(self, text: str) -> List[float]:
-        """
-        Generate embedding using Bedrock Titan Embeddings
-        
-        Args:
-            text: Input text to embed
-            
-        Returns:
-            List of floats representing the embedding vector
-        """
+        """Generate embedding using Amazon Nova Multimodal Embeddings."""
         if not text or not text.strip():
             return [0.0] * self.embedding_dimension
-        
-        # Check cache
+
         if self.cache:
-            cache_key = f"bedrock:emb:{hashlib.sha256(text.encode()).hexdigest()}"
+            cache_key = f"nova:emb:{hashlib.sha256(text.encode()).hexdigest()}"
             cached = self._get_from_cache(cache_key)
             if cached:
                 return cached
-        
-        # Generate embedding with Bedrock
+
         try:
             response = self.bedrock.invoke_model(
                 modelId=EMBEDDING_MODEL,
                 body=json.dumps({
-                    'inputText': text
-                })
+                    'input': text,
+                    'inputText': text,
+                    'taskType': 'SINGLE_EMBEDDING',
+                    'embeddingConfig': {
+                        'outputEmbeddingLength': self.embedding_dimension,
+                    },
+                }),
             )
-            
             result = json.loads(response['body'].read())
             embedding = result['embedding']
-            
-            # Cache result
+
             if self.cache:
-                self._set_cache(cache_key, embedding, ttl=86400)  # 24 hours
-            
+                self._set_cache(cache_key, embedding, ttl=86400)
+
             return embedding
-        
+
         except Exception as e:
-            print(f"Bedrock embedding error: {str(e)}")
-            # Return zero vector on error
+            print(f"Nova embedding error: {e}")
             return [0.0] * self.embedding_dimension
-    
+
     def generate_batch_embeddings(
-        self,
-        texts: List[str],
-        batch_size: int = 25
+        self, texts: List[str], batch_size: int = 25
     ) -> List[List[float]]:
-        """
-        Generate embeddings for multiple texts
-        
-        Note: Bedrock doesn't have native batch API, so we process sequentially
-        
-        Args:
-            texts: List of texts to embed
-            batch_size: Not used (kept for compatibility)
-            
-        Returns:
-            List of embedding vectors
-        """
-        embeddings = []
-        
-        for text in texts:
-            embedding = self.generate_embedding(text)
-            embeddings.append(embedding)
-        
-        return embeddings
-    
+        """Generate embeddings for multiple texts."""
+        return [self.generate_embedding(t) for t in texts]
+
+    # ------------------------------------------------------------------
+    # Text generation  (Nova 2 Lite via Converse API)
+    # ------------------------------------------------------------------
     def generate_text(
         self,
         prompt: str,
-        model: str = TEXT_MODEL_FAST,
+        model: str = None,
         temperature: float = 0.7,
         max_tokens: int = 1024,
-        system_prompt: Optional[str] = None
+        system_prompt: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """
-        Generate text using Bedrock LLMs
-        
-        Args:
-            prompt: User prompt
-            model: Model ID (titan-text, claude-3-sonnet, claude-3-haiku)
-            temperature: Sampling temperature (0.0-1.0)
-            max_tokens: Maximum tokens to generate
-            system_prompt: Optional system prompt
-            
-        Returns:
-            Dict with 'content' and 'usage' keys
-        """
+        """Generate text using Amazon Nova 2 Lite via the Converse API."""
+        model_id = model or TEXT_MODEL
+
         try:
-            if 'claude' in model:
-                return self._generate_claude(prompt, model, temperature, max_tokens, system_prompt)
-            else:
-                return self._generate_titan(prompt, model, temperature, max_tokens)
-        
+            kwargs: Dict[str, Any] = {
+                'modelId': model_id,
+                'messages': [
+                    {'role': 'user', 'content': [{'text': prompt}]}
+                ],
+                'inferenceConfig': {
+                    'temperature': temperature,
+                    'maxTokens': max_tokens,
+                },
+            }
+            if system_prompt:
+                kwargs['system'] = [{'text': system_prompt}]
+
+            response = self.bedrock.converse(**kwargs)
+            output_msg = response['output']['message']
+            content = output_msg['content'][0]['text']
+            usage = response.get('usage', {})
+
+            return {
+                'content': content,
+                'usage': {
+                    'input_tokens': usage.get('inputTokens', 0),
+                    'output_tokens': usage.get('outputTokens', 0),
+                },
+                'model': model_id,
+            }
+
         except Exception as e:
-            print(f"Bedrock text generation error: {str(e)}")
+            print(f"Nova text generation error: {e}")
             return {
                 'content': '',
                 'usage': {'input_tokens': 0, 'output_tokens': 0},
-                'error': str(e)
+                'error': str(e),
             }
-    
-    def _generate_claude(
-        self,
-        prompt: str,
-        model: str,
-        temperature: float,
-        max_tokens: int,
-        system_prompt: Optional[str]
-    ) -> Dict[str, Any]:
-        """
-        Generate text using Claude models
-        """
-        messages = [{'role': 'user', 'content': prompt}]
-        
-        body = {
-            'anthropic_version': 'bedrock-2023-05-31',
-            'max_tokens': max_tokens,
-            'temperature': temperature,
-            'messages': messages
-        }
-        
-        if system_prompt:
-            body['system'] = system_prompt
-        
-        response = self.bedrock.invoke_model(
-            modelId=model,
-            body=json.dumps(body)
-        )
-        
-        result = json.loads(response['body'].read())
-        
-        return {
-            'content': result['content'][0]['text'],
-            'usage': {
-                'input_tokens': result.get('usage', {}).get('input_tokens', 0),
-                'output_tokens': result.get('usage', {}).get('output_tokens', 0)
-            },
-            'model': model
-        }
-    
-    def _generate_titan(
-        self,
-        prompt: str,
-        model: str,
-        temperature: float,
-        max_tokens: int
-    ) -> Dict[str, Any]:
-        """
-        Generate text using Titan models
-        """
-        body = {
-            'inputText': prompt,
-            'textGenerationConfig': {
-                'maxTokenCount': max_tokens,
-                'temperature': temperature,
-                'topP': 0.9
-            }
-        }
-        
-        response = self.bedrock.invoke_model(
-            modelId=model,
-            body=json.dumps(body)
-        )
-        
-        result = json.loads(response['body'].read())
-        
-        return {
-            'content': result['results'][0]['outputText'],
-            'usage': {
-                'input_tokens': result.get('inputTextTokenCount', 0),
-                'output_tokens': result['results'][0].get('tokenCount', 0)
-            },
-            'model': model
-        }
-    
+
+    # ------------------------------------------------------------------
+    # Cache helpers
+    # ------------------------------------------------------------------
     def _get_from_cache(self, key: str) -> Optional[List[float]]:
-        """Get embedding from cache"""
         if not self.cache:
             return None
-        
         try:
             import asyncio
             cached = asyncio.run(self.cache.get(key))
             if cached:
                 return json.loads(cached)
-        except:
+        except Exception:
             pass
-        
         return None
-    
+
     def _set_cache(self, key: str, value: List[float], ttl: int):
-        """Set embedding in cache"""
         if not self.cache:
             return
-        
         try:
             import asyncio
             asyncio.run(self.cache.setex(key, ttl, json.dumps(value)))
-        except:
+        except Exception:
             pass
 
 
-# Global instance
+# ---------------------------------------------------------------------------
+# Singleton
+# ---------------------------------------------------------------------------
 _bedrock_service = None
 
 
 def get_bedrock_service(cache_client=None) -> BedrockService:
-    """
-    Get or create Bedrock service instance (singleton)
-    """
+    """Get or create BedrockService singleton."""
     global _bedrock_service
-    
     if _bedrock_service is None:
         _bedrock_service = BedrockService(cache_client)
-    
     return _bedrock_service
 
 
-# Convenience functions for backward compatibility
+# ---------------------------------------------------------------------------
+# Convenience functions (backward-compatible)
+# ---------------------------------------------------------------------------
 def generate_embedding(text: str) -> List[float]:
-    """
-    Generate embedding using Bedrock
-    
-    Drop-in replacement for SentenceTransformers
-    """
-    service = get_bedrock_service()
-    return service.generate_embedding(text)
+    """Generate embedding using Nova Multimodal Embeddings."""
+    return get_bedrock_service().generate_embedding(text)
 
 
 def generate_batch_embeddings(texts: List[str], batch_size: int = 25) -> List[List[float]]:
-    """
-    Generate embeddings for multiple texts
-    
-    Drop-in replacement for SentenceTransformers
-    """
-    service = get_bedrock_service()
-    return service.generate_batch_embeddings(texts, batch_size)
+    """Generate batch embeddings using Nova Multimodal Embeddings."""
+    return get_bedrock_service().generate_batch_embeddings(texts, batch_size)
 
 
 def generate_text(
     prompt: str,
-    model: str = TEXT_MODEL_FAST,
+    model: str = None,
     temperature: float = 0.7,
-    max_tokens: int = 1024
+    max_tokens: int = 1024,
 ) -> str:
-    """
-    Generate text using Bedrock
-    
-    Returns just the content string for simplicity
-    """
-    service = get_bedrock_service()
-    result = service.generate_text(prompt, model, temperature, max_tokens)
+    """Generate text using Nova 2 Lite and return the content string."""
+    result = get_bedrock_service().generate_text(prompt, model, temperature, max_tokens)
     return result.get('content', '')

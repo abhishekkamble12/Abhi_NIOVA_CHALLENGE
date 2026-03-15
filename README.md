@@ -7,7 +7,7 @@
 > This is not automation.  
 > This is a self-improving media intelligence layer.
 
-📄 **[Requirements](requirements.md)** | 🏗️ **[Design](design.md)** | 📐 **[Architecture](ARCHITECTURE.md)** | 🗄️ **[Vector DB Setup](db-setup/)**
+📄 **[Requirements](requirements.md)** | 🏗️ **[Design](design.md)** | 📐 **[Architecture](ARCHITECTURE.md)** | 🗄️ **[Vector DB Setup](db-setup/)** | 🤖 **[Nova Integration](NOVA_INTEGRATION.md)**
 
 ---
 
@@ -67,6 +67,8 @@ Every module feeds the others.
 - **[design.md](design.md)** - System design and architecture details
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - Data flow patterns and implementation
 - **[db-setup/](db-setup/)** - Vector database setup and configuration
+- **[NOVA_INTEGRATION.md](NOVA_INTEGRATION.md)** - Complete Amazon Nova migration and API guide
+- **[docs/AMAZON_NOVA_INTEGRATION.md](docs/AMAZON_NOVA_INTEGRATION.md)** - Quick Nova integration reference
 
 ---
 
@@ -83,22 +85,52 @@ npm install
 npm run dev
 ```
 
-## 🎯 Key Features
+## Amazon Nova Integration
+
+All AI operations in HiveMind are powered by **Amazon Nova** foundation models via AWS Bedrock:
+
+| Capability | Model | API |
+|---|---|---|
+| **Text / Reasoning / Analysis** | Amazon Nova 2 Lite (`amazon.nova-2-lite-v1:0`) | Converse API |
+| **Speech / Voice** | Amazon Nova 2 Sonic (`amazon.nova-2-sonic-v1:0`) | Converse API |
+| **Embeddings / Vector Search** | Amazon Nova Multimodal Embeddings (`amazon.nova-2-multimodal-embeddings-v1:0`) | invoke_model |
+
+### Why Nova?
+
+- **Unified model family** — single vendor, consistent behavior across text, voice, and embeddings
+- **Converse API** — standardized request/response format, no model-specific payload gymnastics
+- **Multimodal embeddings** — text + image in a single 1024-dim vector space for richer semantic search
+- **Cost-effective** — Nova 2 Lite delivers strong reasoning at a fraction of larger model costs
+
+### Central AI Service
+
+All modules call through `backend/ai/bedrock_nova_client.py`:
+
+```python
+from backend.ai.bedrock_nova_client import generate_text, generate_embeddings
+
+content = generate_text("Write a LinkedIn post about AI trends")
+vector  = generate_embeddings("semantic search query")
+```
+
+---
+
+## Key Features
 
 ### Social Media Engine
-- AI-powered content generation for Instagram, LinkedIn, X
+- AI-powered content generation for Instagram, LinkedIn, X (Nova 2 Lite)
 - Automatic engagement tracking and learning
 - Platform-specific optimization
 
 ### Personalized News Feed
-- NLP-based article analysis and tagging
-- Vector embeddings for semantic search (pgvector)
+- NLP-based article analysis and tagging (Nova 2 Lite)
+- Vector embeddings for semantic search via pgvector (Nova Multimodal Embeddings, 1024-dim)
 - Hybrid recommendation engine (collaborative + vector similarity)
 - Real-time user behavior learning
 
 ### Video Intelligence
 - Automated scene detection and suggestions
-- Speech-to-text captioning
+- Speech-to-text captioning (AWS Transcribe + Nova 2 Sonic roadmap)
 - Platform-optimized exports
 
 ### Cross-Module Learning

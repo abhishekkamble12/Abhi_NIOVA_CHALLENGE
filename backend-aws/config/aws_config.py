@@ -30,9 +30,9 @@ class AWSSettings(BaseSettings):
     AWS_ACCESS_KEY_ID: str = os.getenv("AWS_ACCESS_KEY_ID", "")
     AWS_SECRET_ACCESS_KEY: str = os.getenv("AWS_SECRET_ACCESS_KEY", "")
     
-    # Bedrock
-    BEDROCK_MODEL_EMBEDDING: str = os.getenv("BEDROCK_MODEL_EMBEDDING", "amazon.titan-embed-text-v2:0")
-    BEDROCK_MODEL_TEXT: str = os.getenv("BEDROCK_MODEL_TEXT", "anthropic.claude-3-sonnet-20240229-v1:0")
+    # Bedrock — Amazon Nova models
+    BEDROCK_MODEL_EMBEDDING: str = os.getenv("BEDROCK_MODEL_EMBEDDING", "amazon.nova-2-multimodal-embeddings-v1:0")
+    BEDROCK_MODEL_TEXT: str = os.getenv("BEDROCK_MODEL_TEXT", "amazon.nova-2-lite-v1:0")
     
     # EventBridge
     EVENT_BUS_NAME: str = os.getenv("EVENT_BUS_NAME", "default")

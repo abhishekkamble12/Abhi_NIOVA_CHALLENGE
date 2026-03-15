@@ -49,7 +49,7 @@ class TestVideoIntelligence:
         await db_session.refresh(test_video)
         
         assert test_video.embedding is not None
-        assert len(test_video.embedding) == 384
+        assert len(test_video.embedding) == 1024
     
     async def test_scene_detection(
         self,
@@ -65,7 +65,7 @@ class TestVideoIntelligence:
                 end_time=10.5,
                 description="Opening scene with logo",
                 scene_type="intro",
-                embedding=[0.4] * 384
+                embedding=[0.4] * 1024
             ),
             VideoScene(
                 video_id=test_video.id,
@@ -73,7 +73,7 @@ class TestVideoIntelligence:
                 end_time=45.0,
                 description="Product demonstration",
                 scene_type="action",
-                embedding=[0.5] * 384
+                embedding=[0.5] * 1024
             )
         ]
         

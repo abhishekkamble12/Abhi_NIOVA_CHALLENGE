@@ -58,7 +58,7 @@ def post_generated_handler(event, context):
             'brandId': body['brandId'],
             'platform': body['platform'],
             'content': body['content'],
-            'generatedBy': 'bedrock-claude'
+            'generatedBy': 'bedrock-nova'
         }
     )
     

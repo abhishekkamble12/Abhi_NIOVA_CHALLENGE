@@ -77,7 +77,7 @@ async def example_cache_patterns():
     cache = get_cache_service()
     
     # Embedding cache
-    embedding = [0.1] * 1536
+    embedding = [0.1] * 1024
     await cache.set_embedding("test text", embedding)
     cached = await cache.get_embedding("test text")
     print(f"✅ Embedding cached: {len(cached)} dimensions")

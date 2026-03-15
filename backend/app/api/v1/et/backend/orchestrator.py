@@ -65,7 +65,7 @@ async def retrieve_context(state: ConversationState, *, timeout: float = 3.0) ->
     ]
     return state
 
-async def generate_response(state: ConversationState, *, model: str = "gpt-4o-mini") -> ConversationState:
+async def generate_response(state: ConversationState, *, model: str = "amazon.nova-2-lite-v1:0") -> ConversationState:
     """Call LLM to generate a short, voice-friendly response.
 
     TODO: integrate with streaming LLM client and token-level streaming to TTS.

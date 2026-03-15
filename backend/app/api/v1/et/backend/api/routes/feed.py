@@ -174,7 +174,7 @@ async def generate_personalized_feed(request: FeedRequest):
                 "topics": ["AI", "Tech"],
                 "entities": ["OpenAI", "Google"],
                 "sentiment": "positive",
-                "embedding": [0.1] * 1536,
+                "embedding": [0.1] * 1024,
                 "published_date": datetime.utcnow().isoformat()
             },
             {
@@ -187,7 +187,7 @@ async def generate_personalized_feed(request: FeedRequest):
                 "topics": ["Business", "Startups"],
                 "entities": ["Sequoia", "Andreessen Horowitz"],
                 "sentiment": "neutral",
-                "embedding": [0.2] * 1536,
+                "embedding": [0.2] * 1024,
                 "published_date": datetime.utcnow().isoformat()
             }
         ]
@@ -196,7 +196,7 @@ async def generate_personalized_feed(request: FeedRequest):
         user_profile = {
             "user_id": request.user_id,
             "interests": ["technology", "startup", "ai"],
-            "interests_embedding": [0.15] * 1536,
+            "interests_embedding": [0.15] * 1024,
             "engagement_preference": "high",
             "read_time_avg": 245,
             "behavior_history": [

@@ -6,7 +6,7 @@ Stateful multi-step AI workflow with safety guardrails
 from typing import TypedDict, Annotated, Sequence
 from langgraph.graph import StateGraph, END
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
-from langchain_openai import ChatOpenAI
+from langchain_aws import ChatBedrockConverse
 import asyncio
 from datetime import datetime
 import logging
@@ -43,10 +43,10 @@ class AIOrchestrator:
         """Initialize LLM and build the graph"""
         logger.info("🧠 Initializing AI Orchestrator...")
 
-        self.llm = ChatOpenAI(
-            model="gpt-4-turbo-preview",
+        self.llm = ChatBedrockConverse(
+            model_id="amazon.nova-2-lite-v1:0",
             temperature=0.3,
-            streaming=True
+            region_name="us-east-1",
         )
         
         # Build the LangGraph workflow

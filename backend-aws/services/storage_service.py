@@ -140,7 +140,7 @@ def search_similar_embeddings(query_embedding: List[float], k: int = 10, index: 
     return [hit['_source'] for hit in response['hits']['hits']]
 
 
-def create_embedding_index(index: str = 'embeddings', dimension: int = 1536):
+def create_embedding_index(index: str = 'embeddings', dimension: int = 1024):
     """Create OpenSearch index with k-NN mapping"""
     client = get_opensearch_client()
     

@@ -163,8 +163,8 @@ class ArticleEmbedding(Base):
     
     id = Column(String, primary_key=True, default=lambda: str(uuid4()))
     article_id = Column(String, ForeignKey('articles.id'), unique=True, nullable=False)
-    embedding = Column(JSON)  # Vector embedding (1536-dim for OpenAI)
-    model = Column(String)  # "text-embedding-ada-002"
+    embedding = Column(JSON)  # Vector embedding (1024-dim for Nova)
+    model = Column(String)  # "amazon.nova-2-multimodal-embeddings-v1:0"
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships

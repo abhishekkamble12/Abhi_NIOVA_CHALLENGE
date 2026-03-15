@@ -49,7 +49,7 @@ class TestNewsFeed:
         await db_session.refresh(test_article)
         
         assert test_article.embedding is not None
-        assert len(test_article.embedding) == 384
+        assert len(test_article.embedding) == 1024
     
     async def test_semantic_article_search(
         self,

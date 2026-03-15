@@ -142,7 +142,7 @@
 │ 2. NLP PROCESSING (NLPService)                          │
 │    • Extract topics (AI, Tech, Business, etc)          │
 │    • Analyze sentiment (positive, neutral, negative)   │
-│    • Generate embedding (384-dim vector)                │
+│    • Generate embedding (1024-dim vector, Nova)         │
 │    • Create ArticleTag entries                          │
 └────────────────┬────────────────────────────────────────┘
                  │
@@ -487,7 +487,7 @@ async def health():
 - Use pagination for large result sets
 - Cache popular queries with Redis
 - Optimize vector indexes (tune IVFFlat lists parameter)
-- Use batch embedding generation
+- Use batch embedding generation (Nova Multimodal Embeddings)
 
 ### API
 - Use async/await for I/O operations
@@ -507,3 +507,28 @@ This architecture is designed to be:
 ✅ **Testable** - Easy to test services
 ✅ **Production-Ready** - Real patterns, not toy examples
 ✅ **Extensible** - Easy to add new modules
+
+---
+
+## Amazon Nova Integration
+
+### Model Routing
+
+- **Nova 2 Lite** (`amazon.nova-2-lite-v1:0`) for content generation, summarization, analysis, trend and performance reasoning.
+- **Nova 2 Sonic** (`amazon.nova-2-sonic-v1:0`) for voice/speech workflows (incremental rollout).
+- **Nova Multimodal Embeddings** (`amazon.nova-2-multimodal-embeddings-v1:0`) for semantic search and vector retrieval.
+
+### API Patterns
+
+- Use `converse()` for text/reasoning paths.
+- Use `invoke_model()` for embeddings with `taskType: SINGLE_EMBEDDING`.
+- Use `start_async_invoke()` for long-running/batch embedding jobs.
+
+### Vector Storage
+
+- Canonical embedding dimension is **1024**.
+- pgvector columns and ANN indexes are aligned to `vector(1024)`.
+
+### Multimodal Input
+
+Image understanding requests use Nova-compatible content blocks with base64 image payloads.

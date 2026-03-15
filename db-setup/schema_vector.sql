@@ -11,17 +11,17 @@ CREATE EXTENSION IF NOT EXISTS vector;
 -- 2. ADD VECTOR COLUMNS TO EXISTING TABLES
 -- ============================================
 
--- Articles: Store article content embeddings for semantic search
+-- Articles: Store article content embeddings for semantic search (Nova 1024-dim)
 ALTER TABLE articles 
-ADD COLUMN IF NOT EXISTS embedding vector(384);
+ADD COLUMN IF NOT EXISTS embedding vector(1024);
 
--- Generated Posts: Store post embeddings for pattern matching
+-- Generated Posts: Store post embeddings for pattern matching (Nova 1024-dim)
 ALTER TABLE generated_posts 
-ADD COLUMN IF NOT EXISTS embedding vector(384);
+ADD COLUMN IF NOT EXISTS embedding vector(1024);
 
--- Video Scenes: Store scene embeddings for similarity detection
+-- Video Scenes: Store scene embeddings for similarity detection (Nova 1024-dim)
 ALTER TABLE video_scenes 
-ADD COLUMN IF NOT EXISTS embedding vector(384);
+ADD COLUMN IF NOT EXISTS embedding vector(1024);
 
 -- ============================================
 -- 3. CREATE NEW VECTOR-SPECIFIC TABLES
@@ -31,7 +31,7 @@ ADD COLUMN IF NOT EXISTS embedding vector(384);
 CREATE TABLE IF NOT EXISTS user_interest_embeddings (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    embedding vector(384) NOT NULL,
+    embedding vector(1024) NOT NULL,
     interest_category VARCHAR(100) DEFAULT 'general',
     weight FLOAT DEFAULT 1.0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -121,7 +121,7 @@ ON cross_module_links(video_id);
 
 -- Function to find similar articles
 CREATE OR REPLACE FUNCTION find_similar_articles(
-    query_embedding vector(384),
+    query_embedding vector(1024),
     similarity_threshold FLOAT DEFAULT 0.7,
     result_limit INT DEFAULT 10
 )
@@ -144,7 +144,7 @@ $$ LANGUAGE plpgsql;
 
 -- Function to find similar posts
 CREATE OR REPLACE FUNCTION find_similar_posts(
-    query_embedding vector(384),
+    query_embedding vector(1024),
     result_limit INT DEFAULT 5
 )
 RETURNS TABLE (
@@ -173,7 +173,7 @@ RETURNS TABLE (
     relevance_score FLOAT
 ) AS $$
 DECLARE
-    user_embedding vector(384);
+    user_embedding vector(1024);
 BEGIN
     -- Get user's interest embedding
     SELECT embedding INTO user_embedding
@@ -318,6 +318,6 @@ SELECT * FROM articles_embedding_status;
 -- SET ivfflat.probes = 100; -- Slower, more accurate
 
 -- Embedding dimensions:
--- - 384: all-MiniLM-L6-v2 (lightweight, fast)
--- - 768: all-mpnet-base-v2 (better quality)
--- - 1536: OpenAI text-embedding-ada-002 (best quality)
+-- - 1024: Amazon Nova Multimodal Embeddings (default, recommended)
+-- - 384: all-MiniLM-L6-v2 (legacy, lightweight)
+-- - 1536: OpenAI text-embedding-ada-002 (legacy)

@@ -55,7 +55,7 @@ class TestSocialMediaEngine:
         
         # Verify embedding exists
         assert test_brand.embedding is not None
-        assert len(test_brand.embedding) == 384
+        assert len(test_brand.embedding) == 1024
     
     async def test_generate_social_post(
         self,
@@ -121,7 +121,7 @@ class TestSocialMediaEngine:
             platform=PlatformType.LINKEDIN,
             status=PostStatus.PUBLISHED,
             content="Test post content",
-            embedding=[0.5] * 384
+            embedding=[0.5] * 1024
         )
         
         db_session.add(post)
@@ -130,7 +130,7 @@ class TestSocialMediaEngine:
         
         # Verify embedding stored
         assert post.embedding is not None
-        assert len(post.embedding) == 384
+        assert len(post.embedding) == 1024
     
     async def test_update_brand(
         self,

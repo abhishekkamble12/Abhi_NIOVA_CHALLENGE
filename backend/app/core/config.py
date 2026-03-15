@@ -30,9 +30,9 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: Optional[str] = None
     NEWS_API_KEY: Optional[str] = None
     
-    # Vector Database
-    VECTOR_DIMENSION: int = 384
-    EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"
+    # Vector Database — Amazon Nova Multimodal Embeddings (1024-dim)
+    VECTOR_DIMENSION: int = 1024
+    EMBEDDING_MODEL: str = "amazon.nova-2-multimodal-embeddings-v1:0"
     
     # Storage
     UPLOAD_DIR: str = "uploads"

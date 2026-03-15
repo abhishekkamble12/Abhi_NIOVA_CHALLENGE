@@ -280,7 +280,7 @@ class TestCrossModuleLearning:
         Test: All modules use same embedding space
         
         Verify that articles, posts, videos, and scenes
-        all use 384-dimensional embeddings from same model
+        all use 1024-dimensional embeddings from same model
         """
         
         from app.models import Article, GeneratedPost, Video, VideoScene
@@ -290,32 +290,32 @@ class TestCrossModuleLearning:
             title="Test Article",
             content="Content",
             url="https://test.com/1",
-            embedding=[0.1] * 384
+            embedding=[0.1] * 1024
         )
         
         post = GeneratedPost(
             user_id="00000000-0000-0000-0000-000000000000",
             platform="linkedin",
             content="Test post",
-            embedding=[0.2] * 384
+            embedding=[0.2] * 1024
         )
         
         video = Video(
             user_id="00000000-0000-0000-0000-000000000000",
             title="Test Video",
             file_path="/test.mp4",
-            embedding=[0.3] * 384
+            embedding=[0.3] * 1024
         )
         
         scene = VideoScene(
             video_id="00000000-0000-0000-0000-000000000000",
             start_time=0.0,
             end_time=10.0,
-            embedding=[0.4] * 384
+            embedding=[0.4] * 1024
         )
         
         # Verify all use same dimension
-        assert len(article.embedding) == 384
-        assert len(post.embedding) == 384
-        assert len(video.embedding) == 384
-        assert len(scene.embedding) == 384
+        assert len(article.embedding) == 1024
+        assert len(post.embedding) == 1024
+        assert len(video.embedding) == 1024
+        assert len(scene.embedding) == 1024

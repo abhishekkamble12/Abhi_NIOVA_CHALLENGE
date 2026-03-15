@@ -18,7 +18,7 @@ class TestVectorSearch:
         embedding = vector_service.generate_embedding(text)
         
         assert embedding is not None
-        assert len(embedding) == 384
+        assert len(embedding) == 1024
         assert all(isinstance(x, float) for x in embedding)
     
     async def test_batch_embedding_generation(self, vector_service):
@@ -33,7 +33,7 @@ class TestVectorSearch:
         embeddings = vector_service.generate_batch_embeddings(texts, batch_size=32)
         
         assert len(embeddings) == 3
-        assert all(len(emb) == 384 for emb in embeddings)
+        assert all(len(emb) == 1024 for emb in embeddings)
     
     async def test_article_semantic_search(
         self,
@@ -183,7 +183,7 @@ class TestVectorSearch:
         empty_embedding = vector_service.generate_embedding("")
         
         # Should return zero vector or handle gracefully
-        assert len(empty_embedding) == 384
+        assert len(empty_embedding) == 1024
     
     async def test_cross_module_vector_search(
         self,

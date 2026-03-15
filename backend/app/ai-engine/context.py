@@ -1,15 +1,26 @@
+"""
+Social Media Script Generator — Amazon Nova 2 Lite
+====================================================
+Uses the Converse API to generate platform-specific scripts.
+"""
 import boto3
 import json
 
 
-def generate_social_media_script(transcribed_text, model_id='amazon.nova-lite-v1:0', region_name='us-east-1'):
+def generate_social_media_script(
+    transcribed_text,
+    model_id='amazon.nova-2-lite-v1:0',
+    region_name='us-east-1',
+):
     """
-    Takes transcribed text and uses Amazon Nova on AWS Bedrock
+    Takes transcribed text and uses Amazon Nova 2 Lite on Bedrock
     to generate scripts for YouTube, Instagram, X, and TikTok.
 
-    Returns a dict with platform-keyed scripts and the raw generated text.
+    Returns a dict with platform-keyed scripts.
     """
-    bedrock_runtime = boto3.client(service_name='bedrock-runtime', region_name=region_name)
+    bedrock_runtime = boto3.client(
+        service_name='bedrock-runtime', region_name=region_name
+    )
 
     prompt = f"""You are a social media content expert. Based on the following transcribed text:
 
@@ -27,39 +38,32 @@ Return your answer strictly as valid JSON with the following structure (no extra
   "tiktok": "..."
 }}"""
 
-    body = {
-        "messages": [
+    response = bedrock_runtime.converse(
+        modelId=model_id,
+        messages=[
             {
-                "role": "user",
-                "content": [{"text": prompt}]
+                'role': 'user',
+                'content': [{'text': prompt}],
             }
         ],
-        "inferenceConfig": {
-            "max_new_tokens": 2000,
-            "temperature": 0.7,
-            "topP": 0.9
-        }
-    }
-
-    response = bedrock_runtime.invoke_model(
-        modelId=model_id,
-        contentType='application/json',
-        accept='application/json',
-        body=json.dumps(body)
+        inferenceConfig={
+            'maxTokens': 2000,
+            'temperature': 0.7,
+            'topP': 0.9,
+        },
     )
 
-    response_body = json.loads(response['body'].read())
-    raw_text = response_body["output"]["message"]["content"][0]["text"]
+    raw_text = response['output']['message']['content'][0]['text']
 
     try:
         scripts = json.loads(raw_text)
     except json.JSONDecodeError:
         scripts = {
-            "youtube": raw_text,
-            "instagram": raw_text,
-            "x_twitter": raw_text,
-            "tiktok": raw_text,
-            "_note": "Model did not return structured JSON; raw text used for all platforms."
+            'youtube': raw_text,
+            'instagram': raw_text,
+            'x_twitter': raw_text,
+            'tiktok': raw_text,
+            '_note': 'Model did not return structured JSON; raw text used for all platforms.',
         }
 
     return scripts

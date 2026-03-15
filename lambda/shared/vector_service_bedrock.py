@@ -1,6 +1,7 @@
 """
-Vector Service using Amazon Bedrock
-Updated to use Bedrock instead of SentenceTransformers
+Vector Service using Amazon Bedrock — Nova Multimodal Embeddings Edition
+=========================================================================
+Embedding dimension: 1024 (Nova default)
 """
 from typing import List, Optional, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,22 +17,22 @@ from app.models import Article, GeneratedPost, VideoScene
 
 class VectorService:
     """
-    Service for generating and searching vector embeddings using Bedrock
+    Service for generating and searching vector embeddings using Amazon Nova
     """
     
     def __init__(self, cache_client=None):
         self.bedrock = get_bedrock_service(cache_client)
-        self.dimension = 1536  # Bedrock Titan embeddings dimension
+        self.dimension = 1024  # Amazon Nova Multimodal Embeddings dimension
     
     def generate_embedding(self, text: str) -> List[float]:
         """
-        Generate embedding using Bedrock Titan
+        Generate embedding using Amazon Nova Multimodal Embeddings
         
         Args:
             text: Input text
             
         Returns:
-            1536-dimensional embedding vector
+            1024-dimensional embedding vector
         """
         return self.bedrock.generate_embedding(text)
     

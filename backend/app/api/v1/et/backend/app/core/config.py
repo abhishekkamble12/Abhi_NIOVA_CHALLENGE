@@ -39,10 +39,11 @@ class Settings(BaseSettings):
     PINECONE_ENVIRONMENT: str = ""
     PINECONE_INDEX_NAME: str = "satyasetu-knowledge"
     
-    # OpenAI / LLM
-    OPENAI_API_KEY: str = ""
-    OPENAI_MODEL: str = "gpt-4-turbo-preview"
-    OPENAI_TEMPERATURE: float = 0.3
+    # Amazon Nova / LLM (via Bedrock)
+    NOVA_TEXT_MODEL: str = "amazon.nova-2-lite-v1:0"
+    NOVA_SONIC_MODEL: str = "amazon.nova-2-sonic-v1:0"
+    NOVA_EMBEDDING_MODEL: str = "amazon.nova-2-multimodal-embeddings-v1:0"
+    NOVA_TEMPERATURE: float = 0.3
     
     # Voice Services
     ELEVENLABS_API_KEY: str = ""

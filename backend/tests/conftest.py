@@ -128,7 +128,7 @@ async def test_brand(db_session, test_user) -> Brand:
         description="A test brand for integration testing",
         industry="Technology",
         tone="professional",
-        embedding=[0.1] * 384  # Mock embedding
+        embedding=[0.1] * 1024  # Mock embedding
     )
     
     db_session.add(brand)
@@ -147,7 +147,7 @@ async def test_article(db_session) -> Article:
         url="https://example.com/ai-revolution",
         source="TechNews",
         category="Technology",
-        embedding=[0.2] * 384  # Mock embedding
+        embedding=[0.2] * 1024  # Mock embedding
     )
     
     db_session.add(article)
@@ -167,7 +167,7 @@ async def test_video(db_session, test_user) -> Video:
         file_path="/uploads/videos/test.mp4",
         duration=120.0,
         status="ready",
-        embedding=[0.3] * 384  # Mock embedding
+        embedding=[0.3] * 1024  # Mock embedding
     )
     
     db_session.add(video)
@@ -189,7 +189,7 @@ def auth_headers(test_user) -> dict:
 @pytest.fixture
 def sample_embedding():
     """Generate sample embedding vector"""
-    return [0.1] * 384
+    return [0.1] * 1024
 
 
 @pytest.fixture
@@ -201,7 +201,7 @@ async def multiple_articles(db_session) -> list[Article]:
             content="Introduction to machine learning concepts...",
             url="https://example.com/ml-basics",
             category="Technology",
-            embedding=[0.1 + i * 0.01 for i in range(384)]
+            embedding=[0.1 + i * 0.01 for i in range(1024)]
         )
         for i in range(5)
     ]
