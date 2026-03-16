@@ -1,139 +1,380 @@
 # 🤖 AI Media OS – HiveMind
 
-**Challenge Track**: Professional  
-**Problem**: Content creators waste time using fragmented tools that don't learn from each other  
-**Solution**: Unified AI platform where social media, news curation, and video editing share intelligence and improve together
-
-> This is not automation.  
-> This is a self-improving media intelligence layer.
-
-📄 **[Requirements](requirements.md)** | 🏗️ **[Design](design.md)** | 📐 **[Architecture](ARCHITECTURE.md)** | 🗄️ **[Vector DB Setup](db-setup/)** | 🤖 **[Nova Integration](NOVA_INTEGRATION.md)**
+**Challenge Track:** Professional
+**Category:** AI / Content Intelligence Platform
+**Powered by:** Amazon Nova (AWS Bedrock)
 
 ---
 
-## 🧠 What Makes It Different
+# 🚀 Overview
 
-Traditional tools operate in silos. AI Media OS connects them.
+**HiveMind** is a unified **AI Media Operating System** where social media, news curation, and video intelligence **share knowledge and improve together**.
 
-- 📹 Video insights → social captions  
-- 📰 News trends → brand content ideas  
-- 📈 Post performance → smarter future content  
+Traditional content tools operate in silos.
 
-Every module feeds the others.
+HiveMind connects them into a **self-improving intelligence layer**.
 
----
+📹 Video insights → generate social media captions
+📰 News trends → inspire brand content ideas
+📈 Post performance → improve future content automatically
 
-## ⚙️ Core Capabilities
-
-### 1. Intelligent Content Analysis
-- Detects patterns in high-performing posts
-- Learns from emojis, hooks, tone, and structure
-
-### 2. Adaptive Content Generation
-- Generates posts using real performance learnings
-- Improves output quality with each iteration
-
-### 3. Cross-Module Intelligence
-- Shared memory across video, news, and social modules
-- Compounding intelligence, not isolated AI calls
-
-**Key Message:**  
-> *“This system gets smarter every time you use it.”*
+> **This is not automation.
+> This is a self-improving media intelligence system.**
 
 ---
 
-## 🏆 Why This Wins Hackathons & Competitions
+# ❗ Problem
 
-### 🔧 Technical Excellence
-- Event-driven architecture (not CRUD fluff)
-- Async processing and clean separation of concerns
-- Designed for microservices and scale
+Content creators and marketing teams use **fragmented tools**:
 
-### 💼 Business Viability
-- Targets $16B content marketing + $8B video editing markets
-- Strong SaaS and enterprise licensing potential
-- Defensible moat via learning loops
+• Social media schedulers
+• Video editors
+• News monitoring tools
+• Analytics dashboards
 
-### 🚀 Innovation Factor
-- End-to-end intelligence: creation → distribution → optimization
-- Built AI-first, not retrofitted
-- Compounding value with usage (network effects)
+These tools **do not learn from each other**.
 
----
+Result:
 
-## 📋 Documentation
+* wasted time
+* inconsistent content quality
+* no learning loop
 
-- **[requirements.md](requirements.md)** - Complete functional and non-functional requirements
-- **[design.md](design.md)** - System design and architecture details
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Data flow patterns and implementation
-- **[db-setup/](db-setup/)** - Vector database setup and configuration
-- **[NOVA_INTEGRATION.md](NOVA_INTEGRATION.md)** - Complete Amazon Nova migration and API guide
-- **[docs/AMAZON_NOVA_INTEGRATION.md](docs/AMAZON_NOVA_INTEGRATION.md)** - Quick Nova integration reference
+The modern creator ecosystem needs a **connected AI intelligence layer**.
 
 ---
 
-## 🚀 Quick Start
+# 💡 Solution
 
-```bash
-# Backend
-cd backend
-pip install -r requirements.txt
-python run.py
+HiveMind builds a **shared AI brain for media creation**.
 
-# Frontend
-npm install
-npm run dev
+Every module contributes knowledge:
+
+```
+Content Creation
+      ↓
+Performance Analysis
+      ↓
+AI Pattern Detection
+      ↓
+Smarter Future Content
 ```
 
-## Amazon Nova Integration
+Instead of isolated AI calls, HiveMind creates **compounding intelligence**.
 
-All AI operations in HiveMind are powered by **Amazon Nova** foundation models via AWS Bedrock:
+---
 
-| Capability | Model | API |
-|---|---|---|
-| **Text / Reasoning / Analysis** | Amazon Nova 2 Lite (`amazon.nova-2-lite-v1:0`) | Converse API |
-| **Speech / Voice** | Amazon Nova 2 Sonic (`amazon.nova-2-sonic-v1:0`) | Converse API |
-| **Embeddings / Vector Search** | Amazon Nova Multimodal Embeddings (`amazon.nova-2-multimodal-embeddings-v1:0`) | invoke_model |
+# 🎥 Demo
 
-### Why Nova?
+**Demo Video**
 
-- **Unified model family** — single vendor, consistent behavior across text, voice, and embeddings
-- **Converse API** — standardized request/response format, no model-specific payload gymnastics
-- **Multimodal embeddings** — text + image in a single 1024-dim vector space for richer semantic search
-- **Cost-effective** — Nova 2 Lite delivers strong reasoning at a fraction of larger model costs
+https://youtube.com/your-demo-link
 
-### Central AI Service
+---
 
-All modules call through `backend/ai/bedrock_nova_client.py`:
+# 📸 Screenshots
+
+### Dashboard
+
+![Dashboard](docs/screenshots/dashboard.png)
+
+### AI Content Generator
+
+![Generator](docs/screenshots/generator.png)
+
+### Social Insights Engine
+
+![Insights](docs/screenshots/insights.png)
+
+---
+
+# 🧠 Key Capabilities
+
+## 1️⃣ Intelligent Content Analysis
+
+HiveMind analyzes high-performing posts to detect patterns:
+
+• tone
+• emojis
+• hooks
+• storytelling structure
+• engagement triggers
+
+The system continuously learns what works best.
+
+---
+
+## 2️⃣ Adaptive Content Generation
+
+Using learned patterns, HiveMind generates:
+
+• LinkedIn posts
+• Twitter threads
+• Instagram captions
+• brand marketing content
+
+Each generation improves from **historical performance data**.
+
+---
+
+## 3️⃣ Cross-Module Intelligence
+
+Modules share a **unified learning memory**.
+
+```
+Video Insights
+      ↓
+Content Generator
+      ↓
+Social Performance
+      ↓
+Learning Engine
+```
+
+This creates a **continuous feedback loop**.
+
+---
+
+# 🏗️ System Architecture
+
+```
+               User
+                │
+                ▼
+          Frontend (React)
+                │
+                ▼
+        API Gateway / Backend
+           (Python / FastAPI)
+                │
+        ┌───────┼────────┐
+        ▼       ▼        ▼
+  Social AI   News AI   Video AI
+        │       │        │
+        └───────┼────────┘
+                ▼
+        AI Intelligence Layer
+           Amazon Nova Models
+                │
+                ▼
+         Vector Database
+             (pgvector)
+```
+
+---
+
+
+---
+
+# 🤖 Amazon Nova Integration
+
+HiveMind uses **Amazon Nova foundation models via AWS Bedrock**.
+
+| Capability                   | Model                      | API          |
+| ---------------------------- | -------------------------- | ------------ |
+| Text reasoning & analysis    | Amazon Nova 2 Lite         | Converse API |
+| Speech / voice               | Amazon Nova 2 Sonic        | Converse API |
+| Embeddings / semantic search | Nova Multimodal Embeddings | invoke_model |
+
+---
+
+## Why Amazon Nova?
+
+• unified model ecosystem
+• strong reasoning with low cost
+• consistent API across models
+• powerful multimodal embeddings
+
+Nova enables HiveMind to operate as a **scalable AI intelligence layer**.
+
+---
+
+# 🧠 Central AI Service
+
+All AI interactions pass through a **central Nova client**.
+
+```
+backend/ai/bedrock_nova_client.py
+```
+
+Example usage:
 
 ```python
 from backend.ai.bedrock_nova_client import generate_text, generate_embeddings
 
 content = generate_text("Write a LinkedIn post about AI trends")
-vector  = generate_embeddings("semantic search query")
+
+vector = generate_embeddings("semantic search query")
+```
+
+This ensures **consistent AI orchestration across modules**.
+
+---
+
+# ⚙️ Core Modules
+
+## 📱 Social Media Engine
+
+AI-powered content generation.
+
+Features:
+
+• Instagram caption generator
+• LinkedIn post writer
+• X (Twitter) thread generation
+• engagement analytics
+
+---
+
+## 📰 Personalized News Intelligence
+
+Analyzes global news to generate **content inspiration**.
+
+Capabilities:
+
+• article NLP analysis
+• topic clustering
+• trend detection
+• semantic search via embeddings
+
+Vector storage powered by **pgvector**.
+
+---
+
+## 🎬 Video Intelligence
+
+Helps creators repurpose videos for social media.
+
+Features:
+
+• scene detection
+• caption generation
+• speech-to-text
+• social media export formats
+
+---
+
+## 🔄 Cross-Module Learning Engine
+
+The core innovation of HiveMind.
+
+All modules contribute to a **shared learning memory**.
+
+```
+User Content
+      ↓
+Performance Tracking
+      ↓
+AI Pattern Extraction
+      ↓
+Knowledge Storage
+      ↓
+Improved Future Content
+```
+
+This creates **compounding intelligence** over time.
+
+---
+
+# 📂 Project Structure
+
+```
+AI-Media-OS-HiveMind
+│
+├── backend
+│   ├── ai
+│   │   └── bedrock_nova_client.py
+│   ├── routes
+│   ├── services
+│   └── run.py
+│
+├── frontend
+│   └── React application
+│
+├── docs
+│   ├── architecture.md
+│   ├── requirements.md
+│   └── AMAZON_NOVA_INTEGRATION.md
+│
+├── db-setup
+│   └── vector database setup
+│
+└── README.md
 ```
 
 ---
 
-## Key Features
+# 🗄️ Vector Database
 
-### Social Media Engine
-- AI-powered content generation for Instagram, LinkedIn, X (Nova 2 Lite)
-- Automatic engagement tracking and learning
-- Platform-specific optimization
+HiveMind uses **pgvector** for semantic search.
 
-### Personalized News Feed
-- NLP-based article analysis and tagging (Nova 2 Lite)
-- Vector embeddings for semantic search via pgvector (Nova Multimodal Embeddings, 1024-dim)
-- Hybrid recommendation engine (collaborative + vector similarity)
-- Real-time user behavior learning
+Embeddings generated using:
 
-### Video Intelligence
-- Automated scene detection and suggestions
-- Speech-to-text captioning (AWS Transcribe + Nova 2 Sonic roadmap)
-- Platform-optimized exports
+```
+Amazon Nova Multimodal Embeddings
+```
 
-### Cross-Module Learning
-- Shared intelligence layer across all modules
-- Performance insights improve all content types
-- Compounding improvements over time
+Vector dimension:
+
+```
+1024
+```
+
+This enables:
+
+• semantic search
+• content similarity detection
+• personalized recommendations
+
+---
+
+# ⚡ Quick Start
+
+## Backend
+
+```
+cd backend
+pip install -r requirements.txt
+python run.py
+```
+
+## Frontend
+
+```
+npm install
+npm run dev
+```
+
+---
+
+# 🔮 Future Improvements
+
+• automated content scheduling
+• AI video editing assistant
+• brand voice training models
+• creator collaboration intelligence
+• AI influencer trend prediction
+
+---
+
+# 🏆 Why HiveMind Matters
+
+The creator economy is rapidly expanding.
+
+But creators lack **intelligent systems that learn from their own content**.
+
+HiveMind introduces a new concept:
+
+> **A Media Operating System that continuously improves itself.**
+
+---
+
+# 👨‍💻 Built For
+
+Amazon Nova AI Hackathon
+
+---
+
+# 📄 License
+
+MIT License
