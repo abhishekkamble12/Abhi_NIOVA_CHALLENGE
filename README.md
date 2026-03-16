@@ -4,6 +4,8 @@
 **Category:** AI / Content Intelligence Platform
 **Powered by:** Amazon Nova (AWS Bedrock)
 
+Deployed URL : http://hivemind-frontend-83016.s3-website.ap-south-1.amazonaws.com/
+
 ---
 
 # 🚀 Overview
