@@ -70,7 +70,7 @@ Instead of isolated AI calls, HiveMind creates **compounding intelligence**.
 
 **Demo Video**
 
-https://youtube.com/your-demo-link
+https://youtu.be/3PtygnI6EEc
 
 ---
 
